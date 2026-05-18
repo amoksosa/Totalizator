@@ -1,0 +1,400 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --gold-hi: #ffe97a;
+    --gold-mid: #f5b800;
+    --gold-lo: #a06800;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Barlow Condensed", sans-serif;
+    background: #080b13;
+    color: white;
+}
+
+.player-nav {
+    width: 100%;
+    background: linear-gradient(180deg, #11182d 0%, #090d18 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.player-nav-title {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.12em;
+    color: #ffe97a;
+    line-height: 1;
+}
+
+.player-nav-sub {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 3px;
+}
+
+.player-nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.nav-balance {
+    background: linear-gradient(180deg, #10291d 0%, #07150e 100%);
+    border: 1px solid rgba(80, 255, 150, 0.25);
+    border-radius: 12px;
+    padding: 8px 14px;
+    color: #86efac;
+    font-weight: 900;
+    font-size: 18px;
+}
+
+.nav-link,
+.nav-logout {
+    border: 0;
+    border-radius: 10px;
+    color: white;
+    text-decoration: none;
+    padding: 10px 14px;
+    font-weight: 900;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: "Barlow Condensed", sans-serif;
+}
+
+.nav-link {
+    background: #2563eb;
+}
+
+.nav-logout {
+    background: #dc2626;
+}
+
+.page-wrap {
+    padding: 22px 30px;
+}
+
+.odds-card {
+    width: 100%;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #1a1f38 0%, #0c0f20 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.1) inset,
+        0 -2px 0 rgba(0, 0, 0, 0.8) inset,
+        0 28px 70px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.odds-head {
+    background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold-mid) 45%, var(--gold-lo) 100%);
+    padding: 9px 16px;
+    text-align: center;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 24px;
+    letter-spacing: 0.35em;
+    color: #1a0d00;
+    box-shadow:
+        0 3px 0 rgba(0, 0, 0, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -2px 8px rgba(0, 0, 0, 0.45);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.odds-input-zone {
+    background: linear-gradient(180deg, #0e1128 0%, #080a18 100%);
+    padding: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.odds-input {
+    flex: 1;
+    background: linear-gradient(180deg, #070918 0%, #0c0f20 100%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-top-color: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.95);
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 10px 12px;
+    outline: none;
+    box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(0, 0, 0, 0.8);
+}
+
+.odds-input::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 700;
+}
+
+.odds-allin-btn {
+    background: linear-gradient(180deg, #ff4a4a 0%, #cc0000 55%, #890000 100%);
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    border-top-color: rgba(255, 120, 120, 0.4);
+    border-radius: 8px;
+    color: white;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.14em;
+    padding: 9px 14px;
+    cursor: pointer;
+    box-shadow:
+        0 4px 0 #5a0000,
+        0 6px 14px rgba(200, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 160, 160, 0.3);
+}
+
+.odds-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 11px 12px;
+    background: linear-gradient(180deg, #0c0f22, #09091a);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.odds-chip {
+    background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold-mid) 45%, #c98000 100%);
+    border: 1px solid rgba(0, 0, 0, 0.45);
+    border-top-color: rgba(255, 255, 255, 0.5);
+    border-radius: 999px;
+    color: #1a0d00;
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    cursor: pointer;
+    box-shadow:
+        0 3px 0 #7a5000,
+        0 5px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.odds-tbl-head,
+.odds-data-row,
+.odds-draw-row {
+    display: grid;
+    grid-template-columns: 1.1fr 0.75fr 0.8fr 0.75fr 1.1fr;
+}
+
+.odds-th-cell {
+    padding: 9px 4px;
+    text-align: center;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.12em;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.odds-th-cell.dim {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.odds-th-meron {
+    background: #eb4c4c;
+}
+
+.odds-th-total-red {
+    background: linear-gradient(180deg, #4a0d0d 0%, #2a0505 100%);
+}
+
+.odds-th-mid {
+    background: linear-gradient(180deg, #1e2340 0%, #131728 100%);
+}
+
+.odds-th-total-blue {
+    background: linear-gradient(180deg, #0a1a40 0%, #060f28 100%);
+}
+
+.odds-th-wala {
+    background: #3a9aff;
+}
+
+.odds-data-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.odds-cell-meron,
+.odds-cell-wala {
+    padding: 7px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.odds-cell-meron {
+    background: linear-gradient(90deg, rgba(80, 0, 0, 0.28), rgba(30, 0, 0, 0.08));
+}
+
+.odds-cell-wala {
+    background: linear-gradient(90deg, rgba(0, 20, 80, 0.08), rgba(0, 50, 120, 0.28));
+}
+
+.odds-cell-total-red,
+.odds-cell-total-blue,
+.odds-cell-mid {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+}
+
+.odds-cell-total-red {
+    background: rgba(60, 0, 0, 0.22);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.odds-cell-mid {
+    background: rgba(20, 24, 50, 0.55);
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.odds-cell-total-blue {
+    background: rgba(0, 20, 60, 0.22);
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.odds-btn-minus,
+.odds-btn-plus {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 16px;
+    font-weight: 900;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1;
+}
+
+.odds-btn-minus {
+    background: linear-gradient(180deg, #ff5252 0%, #c00000 55%, #7a0000 100%);
+}
+
+.odds-btn-plus {
+    background: linear-gradient(180deg, #a8e063 0%, #56ab2f 100%);
+}
+
+.odds-counter {
+    min-width: 54px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.95);
+    background: linear-gradient(180deg, #070918, #0c0f20);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 4px 5px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.65);
+}
+
+.odds-draw-row {
+    border-top: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.odds-draw-play,
+.odds-draw-18,
+.odds-draw-label,
+.odds-draw-total {
+    padding: 8px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.odds-draw-play,
+.odds-draw-18,
+.odds-draw-total {
+    background: linear-gradient(180deg, #a8e063 0%, #56ab2f 100%);
+}
+
+.odds-draw-play {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.1em;
+    color: white;
+}
+
+.odds-draw-18 {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 14px;
+    color: #0a1a00;
+    font-weight: 900;
+}
+
+.odds-draw-label {
+    background: rgba(20, 24, 50, 0.55);
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.odds-draw-total {
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 22px;
+    color: white;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+}
+
+@media (max-width: 768px) {
+    .player-nav {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .player-nav-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .page-wrap {
+        padding: 0;
+    }
+
+    .odds-card {
+        border-radius: 0;
+    }
+
+    .odds-th-cell {
+        font-size: 11px;
+    }
+
+    .odds-draw-play,
+    .odds-draw-total {
+        font-size: 15px;
+    }
+}
