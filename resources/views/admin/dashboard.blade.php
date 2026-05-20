@@ -57,6 +57,17 @@
                         Generate direct registration codes for agents.
                     </p>
                 </a>
+
+                <a href="{{ route('admin.withdrawals.index') }}"
+                class="block rounded-2xl bg-purple-600 hover:bg-purple-700 text-white p-6 transition shadow-sm">
+                    <h3 class="text-lg font-bold">
+                        Withdraw Requests
+                    </h3>
+
+                    <p class="text-sm text-purple-100 mt-2">
+                        Approve or reject agent and player withdrawal requests.
+                    </p>
+                </a>
             </div>
         </div>
     </main>

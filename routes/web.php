@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\Admin\AgentCodeController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Admin\WithdrawRequestController as AdminWithdrawRequestController;
 use App\Http\Controllers\Agent\CommissionController;
 use App\Http\Controllers\Agent\PlayerCodeController;
 use App\Http\Controllers\Agent\UserManagementController as AgentUserManagementController;
+use App\Http\Controllers\Agent\WithdrawRequestController as AgentWithdrawRequestController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DeclareController;
 use App\Http\Controllers\PlayerGameController;
+use App\Http\Controllers\WithdrawRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -60,6 +63,18 @@ Route::middleware('auth')->group(function () {
     Route::patch('/agent/users/{user}/give-credit', [AgentUserManagementController::class, 'giveCredit'])->name('agent.users.giveCredit');
 
     Route::get('/agent/commissions', [CommissionController::class, 'index'])->name('agent.commissions.index');
+
+    
+    Route::get('/withdrawals', [WithdrawRequestController::class, 'index'])->name('withdrawals.index');
+    Route::post('/withdrawals', [WithdrawRequestController::class, 'store'])->name('withdrawals.store');
+
+    Route::get('/agent/withdrawals', [AgentWithdrawRequestController::class, 'index'])->name('agent.withdrawals.index');
+    Route::patch('/agent/withdrawals/{withdrawRequest}/approve', [AgentWithdrawRequestController::class, 'approve'])->name('agent.withdrawals.approve');
+    Route::patch('/agent/withdrawals/{withdrawRequest}/reject', [AgentWithdrawRequestController::class, 'reject'])->name('agent.withdrawals.reject');
+
+    Route::get('/admin/withdrawals', [AdminWithdrawRequestController::class, 'index'])->name('admin.withdrawals.index');
+    Route::patch('/admin/withdrawals/{withdrawRequest}/approve', [AdminWithdrawRequestController::class, 'approve'])->name('admin.withdrawals.approve');
+    Route::patch('/admin/withdrawals/{withdrawRequest}/reject', [AdminWithdrawRequestController::class, 'reject'])->name('admin.withdrawals.reject');
 
     
     Route::get('/declare/dashboard', [DeclareController::class, 'index'])->name('declare.dashboard');

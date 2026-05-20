@@ -43,6 +43,10 @@
                 Bet History
             </a>
 
+            <a href="{{ route('withdrawals.index') }}" class="nav-link">
+                Withdraw
+            </a>
+
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
 

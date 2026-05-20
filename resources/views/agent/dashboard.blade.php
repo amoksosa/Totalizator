@@ -17,7 +17,7 @@
                 </h1>
 
                 <p class="text-sm text-slate-500 mt-1">
-                    Manage player codes, downline players, and credit distribution.
+                    Manage player codes, downline players, credit distribution, commissions, and withdrawals.
                 </p>
             </div>
 
@@ -58,31 +58,32 @@
                     </h3>
 
                     <p class="text-sm text-emerald-700 mt-2">
-                        This balance can be distributed to your downline players.
+                        This balance can be distributed to your downline players or requested for withdrawal.
                     </p>
                 </div>
             </div>
 
-            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
 
                 <a href="{{ route('agent.commissions.index') }}"
-   class="group block rounded-2xl bg-yellow-500 hover:bg-yellow-600 text-white p-6 transition shadow-sm">
-    <div class="flex items-center justify-between gap-4">
-        <div>
-            <h3 class="text-lg font-bold">
-                Commission Dashboard
-            </h3>
+                   class="group block rounded-2xl bg-yellow-500 hover:bg-yellow-600 text-white p-6 transition shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold">
+                                Commission Dashboard
+                            </h3>
 
-            <p class="text-sm text-yellow-100 mt-2">
-                View your 5% commission from player bets.
-            </p>
-        </div>
+                            <p class="text-sm text-yellow-100 mt-2">
+                                View your 5% commission from player bets.
+                            </p>
+                        </div>
 
-        <div class="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold group-hover:bg-white/30 transition">
-            →
-        </div>
-    </div>
-</a>
+                        <div class="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold group-hover:bg-white/30 transition">
+                            →
+                        </div>
+                    </div>
+                </a>
+
                 <a href="{{ route('agent.player-codes.index') }}"
                    class="group block rounded-2xl bg-blue-600 hover:bg-blue-700 text-white p-6 transition shadow-sm">
                     <div class="flex items-center justify-between gap-4">
@@ -120,6 +121,45 @@
                         </div>
                     </div>
                 </a>
+
+                <a href="{{ route('withdrawals.index') }}"
+                   class="group block rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white p-6 transition shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold">
+                                Request My Withdrawal
+                            </h3>
+
+                            <p class="text-sm text-cyan-100 mt-2">
+                                Request withdrawal from your own agent credit balance.
+                            </p>
+                        </div>
+
+                        <div class="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold group-hover:bg-white/30 transition">
+                            →
+                        </div>
+                    </div>
+                </a>
+
+                <a href="{{ route('agent.withdrawals.index') }}"
+                   class="group block rounded-2xl bg-purple-600 hover:bg-purple-700 text-white p-6 transition shadow-sm">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold">
+                                Player Withdraw Requests
+                            </h3>
+
+                            <p class="text-sm text-purple-100 mt-2">
+                                Approve or reject withdrawal requests from your players.
+                            </p>
+                        </div>
+
+                        <div class="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl font-bold group-hover:bg-white/30 transition">
+                            →
+                        </div>
+                    </div>
+                </a>
+
             </div>
         </section>
 
@@ -157,38 +197,25 @@
                         timer: 1600,
                         showConfirmButton: false
                     });
+                })
+                .listen('.force.logout', function (event) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Logged Out',
+                        text: event.message,
+                        confirmButtonColor: '#dc2626',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false
+                    }).then(() => {
+                        window.location.href = event.redirect_url;
+                    });
+
+                    setTimeout(function () {
+                        window.location.href = event.redirect_url;
+                    }, 2500);
                 });
         });
     </script>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const userId = @json(auth()->id());
-
-        if (!window.Echo) {
-            console.error('Laravel Echo is not loaded.');
-            return;
-        }
-
-        window.Echo.channel('user.' + userId)
-            .listen('.force.logout', function (event) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Logged Out',
-                    text: event.message,
-                    confirmButtonColor: '#dc2626',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false
-                }).then(() => {
-                    window.location.href = event.redirect_url;
-                });
-
-                setTimeout(function () {
-                    window.location.href = event.redirect_url;
-                }, 2500);
-            });
-    });
-</script>
 
 </body>
 </html>
