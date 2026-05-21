@@ -46,31 +46,77 @@ class WithdrawRequestController extends Controller
             abort(403);
         }
 
-        $withdrawRequest->load('user');
-
-        if (
-            ! $withdrawRequest->user ||
-            $withdrawRequest->user->role !== 'player' ||
-            (int) $withdrawRequest->user->agent_id !== (int) auth()->id()
-        ) {
-            abort(403, 'You can only approve withdrawal requests from your own players.');
-        }
-
-        if ($withdrawRequest->status !== 'pending') {
-            return back()->with('error', 'This withdraw request is already processed.');
-        }
-
         $request->validate([
             'admin_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $withdrawRequest->update([
-            'status' => 'approved',
-            'admin_note' => $request->admin_note,
-            'approved_at' => now(),
-        ]);
+        try {
+            $agent = DB::transaction(function () use ($request, $withdrawRequest) {
+                $agent = User::where('id', auth()->id())
+                    ->lockForUpdate()
+                    ->first();
 
-        return back()->with('success', 'Player withdraw request approved successfully.');
+                if (! $agent || $agent->role !== 'agent') {
+                    throw new \RuntimeException('Unauthorized agent account.');
+                }
+
+                $withdrawRequest = WithdrawRequest::where('id', $withdrawRequest->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $withdrawRequest || $withdrawRequest->status !== 'pending') {
+                    throw new \RuntimeException('This withdraw request is already processed.');
+                }
+
+                $player = User::where('id', $withdrawRequest->user_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (
+                    ! $player ||
+                    $player->role !== 'player' ||
+                    (int) $player->agent_id !== (int) $agent->id
+                ) {
+                    throw new \RuntimeException('You can only approve withdrawal requests from your own players.');
+                }
+
+                /*
+                 * Player withdrawal approved.
+                 * The withdrawn amount goes to the agent's credit balance.
+                 */
+                $agent->increment('credit_balance', $withdrawRequest->amount);
+                $agent->refresh();
+
+                $withdrawRequest->update([
+                    'status' => 'approved',
+                    'admin_note' => $request->admin_note,
+                    'agent_id' => $agent->id,
+                    'approved_at' => now(),
+                ]);
+
+                return $agent;
+            });
+
+            try {
+                broadcast(new CreditBalanceUpdated($agent));
+            } catch (\Throwable $broadcastError) {
+                Log::error('Agent withdraw approve credit broadcast failed', [
+                    'message' => $broadcastError->getMessage(),
+                    'agent_id' => $agent->id,
+                ]);
+            }
+
+            return back()->with('success', 'Player withdraw request approved. Amount added to your credit balance.');
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Agent withdraw approve failed', [
+                'message' => $e->getMessage(),
+                'withdraw_request_id' => $withdrawRequest->id,
+            ]);
+
+            return back()->with('error', 'Something went wrong. Please try again.');
+        }
     }
 
     public function reject(Request $request, WithdrawRequest $withdrawRequest)
@@ -105,6 +151,10 @@ class WithdrawRequestController extends Controller
                     throw new \RuntimeException('You can only reject withdrawal requests from your own players.');
                 }
 
+                /*
+                 * Withdrawal rejected.
+                 * Return the requested amount back to the player's credit balance.
+                 */
                 $user->increment('credit_balance', $withdrawRequest->amount);
                 $user->refresh();
 
