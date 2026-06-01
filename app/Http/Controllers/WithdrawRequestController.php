@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\CreditBalanceUpdated;
+use App\Models\CreditTransaction;
 use App\Models\User;
 use App\Models\WithdrawRequest;
 use Illuminate\Http\Request;
@@ -54,8 +55,12 @@ class WithdrawRequestController extends Controller
                     throw new \RuntimeException('Insufficient credit balance.');
                 }
 
-                $user->decrement('credit_balance', $amount);
-                $user->refresh();
+                $previousBalance = (float) $user->credit_balance;
+                $currentBalance = $previousBalance - $amount;
+
+                $user->update([
+                    'credit_balance' => $currentBalance,
+                ]);
 
                 $withdrawRequest = WithdrawRequest::create([
                     'user_id' => $user->id,
@@ -66,6 +71,32 @@ class WithdrawRequestController extends Controller
                     'account_number' => $request->account_number,
                     'note' => $request->note,
                 ]);
+
+                /*
+                 * Save transaction history.
+                 * This is what the agent will see when clicking the player username.
+                 */
+                CreditTransaction::create([
+                    'user_id' => $user->id,
+                    'agent_id' => $user->role === 'player' ? $user->agent_id : null,
+                    'type' => 'withdraw',
+                    'amount' => $amount,
+                    'previous_balance' => $previousBalance,
+                    'current_balance' => $currentBalance,
+                    'reference_type' => WithdrawRequest::class,
+                    'reference_id' => $withdrawRequest->id,
+                    'description' => 'User requested withdrawal.',
+                    'meta' => [
+                        'withdraw_id' => $withdrawRequest->id,
+                        'withdraw_amount' => $amount,
+                        'payment_method' => $request->payment_method,
+                        'account_name' => $request->account_name,
+                        'account_number' => $request->account_number,
+                        'role' => $user->role,
+                    ],
+                ]);
+
+                $user->refresh();
 
                 return [
                     'user' => $user,

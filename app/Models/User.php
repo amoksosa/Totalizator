@@ -33,4 +33,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(User::class, 'agent_id');
     }
+
+    public function creditTransactions()
+    {
+        return $this->hasMany(CreditTransaction::class, 'user_id');
+    }
 }

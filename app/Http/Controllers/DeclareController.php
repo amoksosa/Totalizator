@@ -6,6 +6,7 @@ use App\Events\CreditBalanceUpdated;
 use App\Events\GameWinnerDeclared;
 use App\Models\Bet;
 use App\Models\GameDeclaration;
+use App\Models\GameEvent;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,11 +21,16 @@ class DeclareController extends Controller
             abort(403);
         }
 
-        $declarations = GameDeclaration::with('declarer')
+        $openEvent = GameEvent::where('created_by', auth()->id())
+            ->where('status', 'open')
+            ->latest()
+            ->first();
+
+        $declarations = GameDeclaration::with(['declarer', 'event'])
             ->latest()
             ->paginate(10);
 
-        return view('declare.dashboard', compact('declarations'));
+        return view('declare.dashboard', compact('declarations', 'openEvent'));
     }
 
     public function store(Request $request)
@@ -40,7 +46,18 @@ class DeclareController extends Controller
 
         try {
             $result = DB::transaction(function () use ($request) {
+                $openEvent = GameEvent::where('created_by', auth()->id())
+                    ->where('status', 'open')
+                    ->lockForUpdate()
+                    ->latest()
+                    ->first();
+
+                if (! $openEvent) {
+                    throw new \RuntimeException('Please create an event first before declaring a match.');
+                }
+
                 $declaration = GameDeclaration::create([
+                    'game_event_id' => $openEvent->id,
                     'declared_by' => auth()->id(),
                     'winner' => $request->winner,
                     'round_code' => $request->round_code,
@@ -96,6 +113,7 @@ class DeclareController extends Controller
 
                 return [
                     'declaration' => $declaration,
+                    'event' => $openEvent,
                     'updated_player_ids' => array_values(array_unique($updatedPlayerIds)),
                 ];
             });
@@ -105,7 +123,9 @@ class DeclareController extends Controller
             $this->broadcastDeclaration($declaration);
             $this->broadcastUpdatedPlayerBalances($result['updated_player_ids']);
 
-            return back()->with('success', $request->winner . ' declared and bets settled successfully.');
+            return back()->with('success', $request->winner . ' declared and saved to event successfully.');
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('Winner declaration settlement failed', [
                 'message' => $e->getMessage(),

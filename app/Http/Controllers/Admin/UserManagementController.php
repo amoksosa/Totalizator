@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Events\CreditBalanceUpdated;
 use App\Events\UserForceLoggedOut;
 use App\Http\Controllers\Controller;
+use App\Models\CreditTransaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +22,14 @@ class UserManagementController extends Controller
         }
 
         $users = User::query()
-            ->with('agent')
+            ->with([
+                'agent',
+                'players',
+                'creditTransactions' => function ($query) {
+                    $query->latest()->limit(50);
+                },
+            ])
+            ->withCount('players')
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('username', 'like', "%{$search}%")
@@ -120,6 +128,10 @@ class UserManagementController extends Controller
 
     public function giveCredit(Request $request, User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $request->validate([
             'credit_amount' => ['required', 'numeric', 'min:1'],
         ]);
@@ -130,19 +142,140 @@ class UserManagementController extends Controller
             ]);
         }
 
-        $user->increment('credit_balance', $request->credit_amount);
-        $user->refresh();
+        $amount = (float) $request->credit_amount;
 
         try {
-            broadcast(new CreditBalanceUpdated($user));
-        } catch (\Throwable $broadcastError) {
-            Log::error('Admin credit broadcast failed', [
-                'message' => $broadcastError->getMessage(),
+            $updatedUser = DB::transaction(function () use ($user, $amount) {
+                $agent = User::where('id', $user->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $agent) {
+                    throw new \RuntimeException('Agent not found.');
+                }
+
+                $previousBalance = (float) $agent->credit_balance;
+
+                $agent->increment('credit_balance', $amount);
+                $agent->refresh();
+
+                CreditTransaction::create([
+                    'user_id' => $agent->id,
+                    'agent_id' => $agent->id,
+                    'type' => 'admin_give_credit',
+                    'amount' => $amount,
+                    'previous_balance' => $previousBalance,
+                    'current_balance' => $agent->credit_balance,
+                    'description' => 'Admin gave credit to agent.',
+                    'meta' => [
+                        'admin_id' => auth()->id(),
+                        'admin_username' => auth()->user()->username,
+                        'agent_id' => $agent->id,
+                        'agent_username' => $agent->username,
+                    ],
+                ]);
+
+                return $agent;
+            });
+
+            try {
+                broadcast(new CreditBalanceUpdated($updatedUser));
+            } catch (\Throwable $broadcastError) {
+                Log::error('Admin credit broadcast failed', [
+                    'message' => $broadcastError->getMessage(),
+                    'user_id' => $updatedUser->id,
+                ]);
+            }
+
+            return back()->with('success', 'Credit added to agent successfully.');
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Admin give credit failed', [
+                'message' => $e->getMessage(),
                 'user_id' => $user->id,
+            ]);
+
+            return back()->with('error', 'Something went wrong. Please try again.');
+        }
+    }
+
+    public function getCredit(Request $request, User $user)
+    {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        $request->validate([
+            'credit_amount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        if ($user->role !== 'agent') {
+            return back()->withErrors([
+                'credit_amount' => 'Admin can only get credits from agents.',
             ]);
         }
 
-        return back()->with('success', 'Credit added to agent successfully.');
+        $amount = (float) $request->credit_amount;
+
+        try {
+            $updatedUser = DB::transaction(function () use ($user, $amount) {
+                $agent = User::where('id', $user->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $agent) {
+                    throw new \RuntimeException('Agent not found.');
+                }
+
+                if ((float) $agent->credit_balance < $amount) {
+                    throw new \RuntimeException('Agent does not have enough credit balance.');
+                }
+
+                $previousBalance = (float) $agent->credit_balance;
+
+                $agent->decrement('credit_balance', $amount);
+                $agent->refresh();
+
+                CreditTransaction::create([
+                    'user_id' => $agent->id,
+                    'agent_id' => $agent->id,
+                    'type' => 'admin_get_credit',
+                    'amount' => $amount,
+                    'previous_balance' => $previousBalance,
+                    'current_balance' => $agent->credit_balance,
+                    'description' => 'Admin got credit from agent.',
+                    'meta' => [
+                        'admin_id' => auth()->id(),
+                        'admin_username' => auth()->user()->username,
+                        'agent_id' => $agent->id,
+                        'agent_username' => $agent->username,
+                    ],
+                ]);
+
+                return $agent;
+            });
+
+            try {
+                broadcast(new CreditBalanceUpdated($updatedUser));
+            } catch (\Throwable $broadcastError) {
+                Log::error('Admin get credit broadcast failed', [
+                    'message' => $broadcastError->getMessage(),
+                    'user_id' => $updatedUser->id,
+                ]);
+            }
+
+            return back()->with('success', 'Credit taken from agent successfully.');
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Admin get credit failed', [
+                'message' => $e->getMessage(),
+                'user_id' => $user->id,
+            ]);
+
+            return back()->with('error', 'Something went wrong. Please try again.');
+        }
     }
 
     public function forceLogout(User $user)

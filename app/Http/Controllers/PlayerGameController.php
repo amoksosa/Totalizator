@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GameEvent;
+use App\Models\CreditTransaction;
 use App\Events\CreditBalanceUpdated;
 use App\Events\PlayerBetPlaced;
 use App\Models\AgentCommission;
@@ -100,10 +102,30 @@ class PlayerGameController extends Controller
             'amount' => ['required', 'numeric', 'min:1'],
         ]);
 
+        $openEvent = GameEvent::where('status', 'open')
+            ->latest()
+            ->first();
+
+        if (! $openEvent) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Betting is closed. No active event right now.',
+            ], 422);
+        }
+
         $amount = (float) $request->amount;
 
         try {
             $result = DB::transaction(function () use ($request, $amount) {
+                $openEvent = GameEvent::where('status', 'open')
+                    ->latest()
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $openEvent) {
+                    throw new \RuntimeException('Betting is closed. No active event right now.');
+                }
+
                 $player = User::where('id', auth()->id())
                     ->lockForUpdate()
                     ->first();
@@ -133,19 +155,54 @@ class PlayerGameController extends Controller
                     'payout_amount' => 0,
                     'balance_before' => $balanceBefore,
                     'balance_after' => $balanceAfter,
+                    'game_event_id' => $openEvent->id,
+                ]);
+
+                CreditTransaction::create([
+                    'user_id' => $player->id,
+                    'agent_id' => $player->agent_id,
+                    'type' => 'bet',
+                    'amount' => $amount,
+                    'previous_balance' => $balanceBefore,
+                    'current_balance' => $balanceAfter,
+                    'reference_type' => Bet::class,
+                    'reference_id' => $bet->id,
+                    'description' => 'Player placed a bet.',
+                    'meta' => [
+                        'event_id' => $openEvent->id,
+                        'event_name' => $openEvent->event_name,
+                        'bet_id' => $bet->id,
+                        'side' => $bet->side,
+                        'odds' => $bet->odds,
+                        'amount' => $amount,
+                    ],
                 ]);
 
                 if ($player->agent_id) {
-                    $commissionRate = 5.00;
-                    $commissionAmount = $amount * ($commissionRate / 100);
+                    $agentCommissionRate = 3.00;
+                    $agentCommissionAmount = $amount * ($agentCommissionRate / 100);
+
+                    $companyCommissionRate = 2.00;
+                    $companyCommissionAmount = $amount * ($companyCommissionRate / 100);
+
+                    $totalCommissionRate = $agentCommissionRate + $companyCommissionRate;
+                    $totalCommissionAmount = $agentCommissionAmount + $companyCommissionAmount;
 
                     AgentCommission::create([
                         'agent_id' => $player->agent_id,
                         'player_id' => $player->id,
                         'bet_id' => $bet->id,
                         'bet_amount' => $amount,
-                        'commission_rate' => $commissionRate,
-                        'commission_amount' => $commissionAmount,
+
+                        'commission_rate' => $agentCommissionRate,
+                        'commission_amount' => $agentCommissionAmount,
+
+                        'company_commission_rate' => $companyCommissionRate,
+                        'company_commission_amount' => $companyCommissionAmount,
+
+                        'total_commission_rate' => $totalCommissionRate,
+                        'total_commission_amount' => $totalCommissionAmount,
+
                         'side' => $request->side,
                         'odds' => $request->odds,
                     ]);

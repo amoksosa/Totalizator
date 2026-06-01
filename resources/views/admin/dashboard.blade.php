@@ -36,6 +36,7 @@
             </p>
 
             <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+
                 <a href="{{ route('admin.users.index') }}"
                    class="block rounded-2xl bg-blue-600 hover:bg-blue-700 text-white p-6 transition">
                     <h3 class="text-lg font-bold">
@@ -59,7 +60,7 @@
                 </a>
 
                 <a href="{{ route('admin.withdrawals.index') }}"
-                class="block rounded-2xl bg-purple-600 hover:bg-purple-700 text-white p-6 transition shadow-sm">
+                   class="block rounded-2xl bg-purple-600 hover:bg-purple-700 text-white p-6 transition shadow-sm">
                     <h3 class="text-lg font-bold">
                         Withdraw Requests
                     </h3>
@@ -68,6 +69,29 @@
                         Approve or reject agent and player withdrawal requests.
                     </p>
                 </a>
+
+                <a href="{{ route('admin.commissions.index') }}"
+                   class="block rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white p-6 transition shadow-sm">
+                    <h3 class="text-lg font-bold">
+                        Daily Sales Report
+                    </h3>
+
+                    <p class="text-sm text-emerald-100 mt-2">
+                        View daily bets, commissions, company earnings, and agent withdraw totals.
+                    </p>
+                </a>
+
+                <a href="{{ route('admin.sales.index') }}"
+                   class="block rounded-2xl bg-orange-600 hover:bg-orange-700 text-white p-6 transition shadow-sm">
+                    <h3 class="text-lg font-bold">
+                        Sales Report
+                    </h3>
+
+                    <p class="text-sm text-orange-100 mt-2">
+                        View sales report per event, total player bets, commissions, payouts, and net sales.
+                    </p>
+                </a>
+
             </div>
         </div>
     </main>
