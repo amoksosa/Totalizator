@@ -146,17 +146,17 @@ class PlayerGameController extends Controller
                 ]);
 
                 $bet = Bet::create([
-                    'user_id' => $player->id,
-                    'side' => $request->side,
-                    'odds' => $request->odds,
-                    'amount' => $amount,
-                    'status' => 'pending',
-                    'win_amount' => 0,
-                    'payout_amount' => 0,
-                    'balance_before' => $balanceBefore,
-                    'balance_after' => $balanceAfter,
-                    'game_event_id' => $openEvent->id,
-                ]);
+                'user_id' => $player->id,
+                'game_event_id' => $openEvent->id,
+                'side' => $request->side,
+                'odds' => $request->odds,
+                'amount' => $amount,
+                'status' => 'pending',
+                'win_amount' => 0,
+                'payout_amount' => 0,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+            ]);
 
                 CreditTransaction::create([
                     'user_id' => $player->id,

@@ -65,6 +65,7 @@ class DeclareController extends Controller
 
                 $pendingBets = Bet::query()
                     ->where('status', 'pending')
+                    ->where('game_event_id', $openEvent->id)
                     ->lockForUpdate()
                     ->get();
 
@@ -85,13 +86,25 @@ class DeclareController extends Controller
                         continue;
                     }
 
-                    $winAmount = $this->calculateWinAmount(
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Winner payout with 5% deduction
+                    |--------------------------------------------------------------------------
+                    | Commission is already created when the player placed the bet.
+                    | Here, we only deduct 5% from the player's gross win amount.
+                    */
+
+                    $grossWinAmount = $this->calculateWinAmount(
                         side: $bet->side,
                         odds: $bet->odds,
                         amount: (float) $bet->amount,
                     );
 
-                    $payoutAmount = (float) $bet->amount + $winAmount;
+                    $winDeductionRate = 5.00;
+                    $winDeductionAmount = round($grossWinAmount * ($winDeductionRate / 100), 2);
+
+                    $netWinAmount = round($grossWinAmount - $winDeductionAmount, 2);
+                    $payoutAmount = round((float) $bet->amount + $netWinAmount, 2);
 
                     $player = User::where('id', $bet->user_id)
                         ->lockForUpdate()
@@ -104,7 +117,7 @@ class DeclareController extends Controller
 
                     $bet->update([
                         'status' => 'won',
-                        'win_amount' => $winAmount,
+                        'win_amount' => $netWinAmount,
                         'payout_amount' => $payoutAmount,
                         'declaration_id' => $declaration->id,
                         'settled_at' => now(),

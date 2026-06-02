@@ -31,18 +31,18 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
 
     /*
-    |--------------------------------------------------------------------------
-    | Dashboards
-    |--------------------------------------------------------------------------
+    
+     Dashboards
+    
     */
 
     Route::get('/admin/dashboard', [AuthController::class, 'adminDashboard'])->name('admin.dashboard');
     Route::get('/agent/dashboard', [AuthController::class, 'agentDashboard'])->name('agent.dashboard');
 
     /*
-    |--------------------------------------------------------------------------
-    | Player
-    |--------------------------------------------------------------------------
+    
+     Player
+    
     */
 
     Route::get('/player/dashboard', [PlayerGameController::class, 'dashboard'])->name('player.dashboard');
@@ -56,9 +56,9 @@ Route::middleware('auth')->group(function () {
         ->name('player.current-bet-totals');
 
     /*
-    |--------------------------------------------------------------------------
-    | Admin - User Management
-    |--------------------------------------------------------------------------
+    
+     Admin - User Management
+    
     */
 
     Route::get('/admin/users', [UserManagementController::class, 'index'])->name('admin.users.index');
@@ -72,27 +72,27 @@ Route::middleware('auth')->group(function () {
     Route::delete('/admin/users/{user}/force-logout', [UserManagementController::class, 'forceLogout'])->name('admin.users.forceLogout');
 
     /*
-    |--------------------------------------------------------------------------
-    | Admin - Agent Codes
-    |--------------------------------------------------------------------------
+    
+     Admin - Agent Codes
+    
     */
 
     Route::get('/admin/agent-codes', [AgentCodeController::class, 'index'])->name('admin.agent-codes.index');
     Route::post('/admin/agent-codes', [AgentCodeController::class, 'store'])->name('admin.agent-codes.store');
 
     /*
-    |--------------------------------------------------------------------------
-    | Admin - Commission Report
-    |--------------------------------------------------------------------------
+    
+     Admin - Commission Report
+    
     */
 
     Route::get('/admin/commissions', [AdminCommissionController::class, 'index'])
         ->name('admin.commissions.index');
 
     /*
-    |--------------------------------------------------------------------------
-    | Agent
-    |--------------------------------------------------------------------------
+    
+     Agent
+    
     */
 
     Route::get('/agent/player-codes', [PlayerCodeController::class, 'index'])->name('agent.player-codes.index');
@@ -112,9 +112,9 @@ Route::middleware('auth')->group(function () {
     ->name('admin.sales.show');
 
     /*
-    |--------------------------------------------------------------------------
-    | Withdrawals
-    |--------------------------------------------------------------------------
+    
+     Withdrawals
+    
     */
 
     Route::get('/withdrawals', [WithdrawRequestController::class, 'index'])->name('withdrawals.index');
@@ -129,18 +129,18 @@ Route::middleware('auth')->group(function () {
     Route::patch('/admin/withdrawals/{withdrawRequest}/reject', [AdminWithdrawRequestController::class, 'reject'])->name('admin.withdrawals.reject');
 
     /*
-    |--------------------------------------------------------------------------
-    | Declare
-    |--------------------------------------------------------------------------
+    
+     Declare
+    
     */
 
     Route::get('/declare/dashboard', [DeclareController::class, 'index'])->name('declare.dashboard');
     Route::post('/declare/winner', [DeclareController::class, 'store'])->name('declare.winner.store');
 
     /*
-    |--------------------------------------------------------------------------
-    | Declare - Events
-    |--------------------------------------------------------------------------
+    
+     Declare - Events
+    
     */
 
     Route::get('/declare/events', [DeclareEventController::class, 'index'])
@@ -156,9 +156,9 @@ Route::middleware('auth')->group(function () {
         ->name('declare.events.close');
 
     /*
-    |--------------------------------------------------------------------------
-    | Logout
-    |--------------------------------------------------------------------------
+    
+     Logout
+    
     */
 
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

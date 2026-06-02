@@ -42,7 +42,7 @@ class SalesReportController extends Controller
         $eventTotals = [];
 
         foreach ($events as $event) {
-            $eventTotals[$event->id] = $this->calculateEventTotals($event->id);
+            $eventTotals[$event->id] = $this->calculateEventTotals($event);
         }
 
         return view('admin.sales.index', compact('events', 'eventTotals', 'allEvents'));
@@ -61,18 +61,23 @@ class SalesReportController extends Controller
             },
         ]);
 
-        $totals = $this->calculateEventTotals($event->id);
+        $totals = $this->calculateEventTotals($event);
 
-        $bets = Bet::query()
+        $bets = $this->eventBetsQuery($event)
             ->with(['user.agent'])
-            ->where('game_event_id', $event->id)
             ->latest()
             ->paginate(25);
 
         $commissions = AgentCommission::query()
             ->with(['agent', 'player', 'bet'])
             ->whereHas('bet', function ($query) use ($event) {
-                $query->where('game_event_id', $event->id);
+                $query->where(function ($betQuery) use ($event) {
+                    $betQuery->where('game_event_id', $event->id)
+                        ->orWhere(function ($oldBetQuery) use ($event) {
+                            $oldBetQuery->whereNull('game_event_id')
+                                ->whereDate('created_at', $event->event_date);
+                        });
+                });
             })
             ->latest()
             ->paginate(25, ['*'], 'commissions_page');
@@ -85,39 +90,69 @@ class SalesReportController extends Controller
         ));
     }
 
-    private function calculateEventTotals(int $eventId): array
+    private function eventBetsQuery(GameEvent $event)
     {
-        $totalBets = Bet::where('game_event_id', $eventId)->sum('amount');
+        return Bet::query()
+            ->where(function ($query) use ($event) {
+                $query->where('game_event_id', $event->id)
+                    ->orWhere(function ($oldBetQuery) use ($event) {
+                        $oldBetQuery->whereNull('game_event_id')
+                            ->whereDate('created_at', $event->event_date);
+                    });
+            });
+    }
 
-        $pendingBets = Bet::where('game_event_id', $eventId)
+    private function eventCommissionsQuery(GameEvent $event)
+    {
+        return AgentCommission::query()
+            ->whereHas('bet', function ($query) use ($event) {
+                $query->where(function ($betQuery) use ($event) {
+                    $betQuery->where('game_event_id', $event->id)
+                        ->orWhere(function ($oldBetQuery) use ($event) {
+                            $oldBetQuery->whereNull('game_event_id')
+                                ->whereDate('created_at', $event->event_date);
+                        });
+                });
+            });
+    }
+
+    private function calculateEventTotals(GameEvent $event): array
+    {
+        $totalBets = (clone $this->eventBetsQuery($event))
+            ->sum('amount');
+
+        $pendingBets = (clone $this->eventBetsQuery($event))
             ->where('status', 'pending')
             ->sum('amount');
 
-        $wonBets = Bet::where('game_event_id', $eventId)
+        $wonBets = (clone $this->eventBetsQuery($event))
             ->where('status', 'won')
             ->sum('amount');
 
-        $lostBets = Bet::where('game_event_id', $eventId)
+        $lostBets = (clone $this->eventBetsQuery($event))
             ->where('status', 'lost')
             ->sum('amount');
 
-        $totalWinAmount = Bet::where('game_event_id', $eventId)
+        $totalWinAmount = (clone $this->eventBetsQuery($event))
             ->sum('win_amount');
 
-        $totalPayoutAmount = Bet::where('game_event_id', $eventId)
+        $totalPayoutAmount = (clone $this->eventBetsQuery($event))
             ->sum('payout_amount');
 
-        $totalAgentCommission = AgentCommission::whereHas('bet', function ($query) use ($eventId) {
-            $query->where('game_event_id', $eventId);
-        })->sum('commission_amount');
+        $totalAgentCommission = (clone $this->eventCommissionsQuery($event))
+            ->sum('commission_amount');
 
-        $totalCompanyCommission = AgentCommission::whereHas('bet', function ($query) use ($eventId) {
-            $query->where('game_event_id', $eventId);
-        })->sum('company_commission_amount');
+        $totalCompanyCommission = (clone $this->eventCommissionsQuery($event))
+            ->sum('company_commission_amount');
 
-        $totalCommission = AgentCommission::whereHas('bet', function ($query) use ($eventId) {
-            $query->where('game_event_id', $eventId);
-        })->sum('total_commission_amount');
+        $totalCommission = (clone $this->eventCommissionsQuery($event))
+            ->sum('total_commission_amount');
+
+        $betRecords = (clone $this->eventBetsQuery($event))
+            ->count();
+
+        $commissionRecords = (clone $this->eventCommissionsQuery($event))
+            ->count();
 
         $netSalesBeforePayout = $totalBets - $totalCommission;
         $netAfterPayout = $totalBets - $totalPayoutAmount - $totalCommission;
@@ -132,6 +167,8 @@ class SalesReportController extends Controller
             'total_agent_commission' => $totalAgentCommission,
             'total_company_commission' => $totalCompanyCommission,
             'total_commission' => $totalCommission,
+            'bet_records' => $betRecords,
+            'commission_records' => $commissionRecords,
             'net_sales_before_payout' => $netSalesBeforePayout,
             'net_after_payout' => $netAfterPayout,
         ];

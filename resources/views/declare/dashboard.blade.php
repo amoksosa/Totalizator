@@ -17,7 +17,7 @@
                 </h1>
 
                 <p class="text-sm text-slate-500 mt-1">
-                    Create an event for the day, declare matches, then close the event after it ends.
+                    Create an event for the day, watch the match, declare winners, then close the event after it ends.
                 </p>
             </div>
 
@@ -147,6 +147,56 @@
                     </div>
                 </form>
             @endif
+        </section>
+
+        {{-- Live Event Video Section --}}
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-5">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">
+                        Live Event Video
+                    </h2>
+
+                    <p class="text-sm text-slate-500 mt-1">
+                        Watch the current match before declaring the winner.
+                    </p>
+                </div>
+
+                @if ($openEvent)
+                    <span class="inline-flex w-fit rounded-full bg-green-100 text-green-700 px-4 py-2 text-sm font-bold">
+                        {{ $openEvent->event_name }}
+                    </span>
+                @else
+                    <span class="inline-flex w-fit rounded-full bg-slate-100 text-slate-700 px-4 py-2 text-sm font-bold">
+                        No Open Event
+                    </span>
+                @endif
+            </div>
+
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow">
+                <div class="relative w-full aspect-video">
+
+                    {{-- IFRAME / LIVESTREAM --}}
+                    <iframe
+                        class="absolute inset-0 w-full h-full"
+                        src="https://www.youtube.com/embed/US1it7zjmvs"
+                        title="Live Event Video"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowfullscreen>
+                    </iframe>
+
+                        <video
+                            class="absolute inset-0 w-full h-full"
+                            src="{{ asset('videos/sample-video.mp4') }}"
+                            controls
+                            autoplay
+                            muted
+                            playsinline>
+                        </video>
+                    --}}
+                </div>
+            </div>
         </section>
 
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
