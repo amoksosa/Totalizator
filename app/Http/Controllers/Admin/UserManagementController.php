@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
@@ -86,13 +87,35 @@ class UserManagementController extends Controller
             abort(403);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'role' => ['required', Rule::in(['admin', 'agent', 'player', 'declare'])],
         ]);
 
-        $user->update([
-            'role' => $request->role,
-        ]);
+        $newRole = $validated['role'];
+
+        $updateData = [
+            'role' => $newRole,
+        ];
+
+        
+
+        if ($newRole === 'agent' && ! $user->referral_code) {
+            $updateData['referral_code'] = $this->generateUniqueAgentReferralCode();
+        }
+
+        
+
+        if (in_array($newRole, ['admin', 'agent', 'declare'])) {
+            $updateData['agent_id'] = null;
+        }
+
+        
+
+        if ($newRole === 'agent') {
+            $updateData['status'] = 'approved';
+        }
+
+        $user->update($updateData);
 
         return back()->with('success', 'User role updated successfully.');
     }
@@ -162,7 +185,7 @@ class UserManagementController extends Controller
             ]);
         }
 
-        $amount = (float) $request->credit_amount;
+        $amount = round((float) $request->credit_amount, 2);
 
         try {
             $updatedUser = DB::transaction(function () use ($user, $amount) {
@@ -252,7 +275,7 @@ class UserManagementController extends Controller
             ]);
         }
 
-        $amount = (float) $request->credit_amount;
+        $amount = round((float) $request->credit_amount, 2);
 
         try {
             $updatedUser = DB::transaction(function () use ($user, $amount) {
@@ -264,8 +287,12 @@ class UserManagementController extends Controller
                     throw new \RuntimeException('Agent not found.');
                 }
 
+                if ($agent->role !== 'agent') {
+                    throw new \RuntimeException('Admin can only get credits from agents.');
+                }
+
                 if ((float) $agent->credit_balance < $amount) {
-                    throw new \RuntimeException('Agent does not have enough credit balance.');
+                    throw new \RuntimeException('Agent has insufficient credit balance.');
                 }
 
                 $previousBalance = (float) $agent->credit_balance;
@@ -280,12 +307,13 @@ class UserManagementController extends Controller
                     'amount' => $amount,
                     'previous_balance' => $previousBalance,
                     'current_balance' => $agent->credit_balance,
-                    'description' => 'Admin got credit from agent.',
+                    'description' => 'Admin retrieved credit from agent.',
                     'meta' => [
                         'admin_id' => auth()->id(),
                         'admin_username' => auth()->user()->username,
-                        'agent_id' => $agent->id,
-                        'agent_username' => $agent->username,
+                        'target_user_id' => $agent->id,
+                        'target_username' => $agent->username,
+                        'target_role' => $agent->role,
                     ],
                 ]);
 
@@ -301,7 +329,7 @@ class UserManagementController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Credit taken from agent successfully.');
+            return back()->with('success', 'Credit retrieved successfully.');
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -323,22 +351,42 @@ class UserManagementController extends Controller
         $this->forceLogoutUser($user);
         $this->broadcastForceLogout($user);
 
-        return back()->with('success', 'User forced logout successfully.');
+        return back()->with('success', 'User has been force logged out.');
     }
 
-    private function forceLogoutUser(User $user)
+    private function generateUniqueAgentReferralCode(): string
     {
-        DB::table('sessions')
-            ->where('user_id', $user->id)
-            ->delete();
+        do {
+            $code = 'AGT-' . strtoupper(Str::random(8));
+        } while (User::where('referral_code', $code)->exists());
+
+        return $code;
     }
 
-    private function broadcastForceLogout(User $user)
+    private function forceLogoutUser(User $user): void
+    {
+        try {
+            DB::table('sessions')
+                ->where('user_id', $user->id)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Force logout session delete failed', [
+                'message' => $e->getMessage(),
+                'user_id' => $user->id,
+            ]);
+        }
+
+        $user->forceFill([
+            'remember_token' => Str::random(60),
+        ])->save();
+    }
+
+    private function broadcastForceLogout(User $user): void
     {
         try {
             broadcast(new UserForceLoggedOut($user));
         } catch (\Throwable $broadcastError) {
-            Log::error('Force logout broadcast failed', [
+            Log::error('User force logout broadcast failed', [
                 'message' => $broadcastError->getMessage(),
                 'user_id' => $user->id,
             ]);
