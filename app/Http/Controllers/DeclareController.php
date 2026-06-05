@@ -7,6 +7,7 @@ use App\Events\GameWinnerDeclared;
 use App\Models\Bet;
 use App\Models\GameDeclaration;
 use App\Models\GameEvent;
+use App\Models\GameRound;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ class DeclareController extends Controller
         }
 
         $request->validate([
+            'game_round_id' => ['required', 'exists:game_rounds,id'],
             'winner' => ['required', Rule::in(['MERON', 'WALA', 'DRAW'])],
             'round_code' => ['nullable', 'string', 'max:100'],
         ]);
@@ -56,16 +58,29 @@ class DeclareController extends Controller
                     throw new \RuntimeException('Please create an event first before declaring a match.');
                 }
 
+                $round = GameRound::where('id', $request->game_round_id)
+                    ->where('game_event_id', $openEvent->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $round) {
+                    throw new \RuntimeException('Round not found for this event.');
+                }
+
+                if ($round->status !== 'closed') {
+                    throw new \RuntimeException('Close betting first before declaring the winner.');
+                }
+
                 $declaration = GameDeclaration::create([
                     'game_event_id' => $openEvent->id,
                     'declared_by' => auth()->id(),
                     'winner' => $request->winner,
-                    'round_code' => $request->round_code,
+                    'round_code' => $request->round_code ?: $round->round_code,
                 ]);
 
                 $pendingBets = Bet::query()
+                    ->where('game_round_id', $round->id)
                     ->where('status', 'pending')
-                    ->where('game_event_id', $openEvent->id)
                     ->lockForUpdate()
                     ->get();
 
@@ -86,24 +101,19 @@ class DeclareController extends Controller
                         continue;
                     }
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Winner payout with 5% deduction
-                    |--------------------------------------------------------------------------
-                    | Commission is already created when the player placed the bet.
-                    | Here, we only deduct 5% from the player's gross win amount.
-                    */
-
                     $grossWinAmount = $this->calculateWinAmount(
                         side: $bet->side,
                         odds: $bet->odds,
                         amount: (float) $bet->amount,
                     );
 
+                    // 5% deduction from the winning amount
                     $winDeductionRate = 5.00;
                     $winDeductionAmount = round($grossWinAmount * ($winDeductionRate / 100), 2);
 
                     $netWinAmount = round($grossWinAmount - $winDeductionAmount, 2);
+
+                    // Player receives original bet amount + net win amount
                     $payoutAmount = round((float) $bet->amount + $netWinAmount, 2);
 
                     $player = User::where('id', $bet->user_id)
@@ -124,19 +134,23 @@ class DeclareController extends Controller
                     ]);
                 }
 
+                $round->update([
+                    'status' => 'settled',
+                    'winner' => $request->winner,
+                    'settled_at' => now(),
+                ]);
+
                 return [
                     'declaration' => $declaration,
-                    'event' => $openEvent,
+                    'round' => $round,
                     'updated_player_ids' => array_values(array_unique($updatedPlayerIds)),
                 ];
             });
 
-            $declaration = $result['declaration'];
-
-            $this->broadcastDeclaration($declaration);
+            $this->broadcastDeclaration($result['declaration']);
             $this->broadcastUpdatedPlayerBalances($result['updated_player_ids']);
 
-            return back()->with('success', $request->winner . ' declared and saved to event successfully.');
+            return back()->with('success', $request->winner . ' declared successfully. Round is now settled.');
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -188,14 +202,14 @@ class DeclareController extends Controller
         $parts = explode('-', $odds);
 
         if (count($parts) !== 2) {
-            return $amount * 8;
+            return round($amount * 8, 2);
         }
 
         $left = (float) $parts[0];
         $right = (float) $parts[1];
 
         if ($left <= 0 || $right <= 0) {
-            return $amount * 8;
+            return round($amount * 8, 2);
         }
 
         return round($amount * ($right / $left), 2);

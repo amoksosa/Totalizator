@@ -16,7 +16,9 @@ class User extends Authenticatable
         'role',
         'status',
         'agent_id',
+        'referral_code',
         'credit_balance',
+        'remember_token',
     ];
 
     protected $hidden = [
@@ -31,7 +33,14 @@ class User extends Authenticatable
 
     public function players()
     {
-        return $this->hasMany(User::class, 'agent_id');
+        return $this->hasMany(User::class, 'agent_id')
+            ->where('role', 'player');
+    }
+
+    public function downlines()
+    {
+        return $this->hasMany(User::class, 'agent_id')
+            ->where('role', 'player');
     }
 
     public function creditTransactions()

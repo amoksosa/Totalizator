@@ -187,7 +187,7 @@
                                 </span>
                             </p>
 
-                            @if ($user->role === 'agent')
+                            @if (in_array($user->role, ['agent', 'player']))
                                 <div class="mt-3 space-y-3">
 
                                     <form
@@ -213,34 +213,36 @@
                                         </button>
                                     </form>
 
-                                    <form
-                                        method="POST"
-                                        action="{{ route('admin.users.getCredit', $user) }}"
-                                        class="flex flex-col sm:flex-row gap-2"
-                                        onsubmit="return confirm('Are you sure you want to get credit from this agent?')"
-                                    >
-                                        @csrf
-                                        @method('PATCH')
-
-                                        <input
-                                            type="number"
-                                            name="credit_amount"
-                                            step="0.01"
-                                            min="1"
-                                            placeholder="Amount to get"
-                                            class="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                                            required
+                                    @if ($user->role === 'agent')
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.users.getCredit', $user) }}"
+                                            class="flex flex-col sm:flex-row gap-2"
+                                            onsubmit="return confirm('Are you sure you want to get credit from this agent?')"
                                         >
+                                            @csrf
+                                            @method('PATCH')
 
-                                        <button class="rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm font-semibold whitespace-nowrap">
-                                            Get Credit
-                                        </button>
-                                    </form>
+                                            <input
+                                                type="number"
+                                                name="credit_amount"
+                                                step="0.01"
+                                                min="1"
+                                                placeholder="Amount to get"
+                                                class="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                                required
+                                            >
+
+                                            <button class="rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm font-semibold whitespace-nowrap">
+                                                Get Credit
+                                            </button>
+                                        </form>
+                                    @endif
 
                                 </div>
                             @else
                                 <p class="text-sm text-slate-500 mt-3">
-                                    Credits can only be managed for agents.
+                                    Credits can only be managed for agents and players.
                                 </p>
                             @endif
                         </div>
@@ -461,6 +463,10 @@
                                                     @elseif ($transaction->type === 'admin_give_credit')
                                                         <span class="rounded-full bg-purple-100 text-purple-700 px-3 py-1 text-xs font-bold">
                                                             Admin Gave Credit
+                                                        </span>
+                                                    @elseif ($transaction->type === 'admin_give_player_credit')
+                                                        <span class="rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-bold">
+                                                            Admin Gave Player Credit
                                                         </span>
                                                     @elseif ($transaction->type === 'admin_get_credit')
                                                         <span class="rounded-full bg-pink-100 text-pink-700 px-3 py-1 text-xs font-bold">

@@ -51,8 +51,35 @@ class WithdrawRequestController extends Controller
                     throw new \RuntimeException('User not found.');
                 }
 
+                if (! in_array($user->role, ['agent', 'player'])) {
+                    throw new \RuntimeException('Only agents and players can request withdrawal.');
+                }
+
                 if ((float) $user->credit_balance < $amount) {
                     throw new \RuntimeException('Insufficient credit balance.');
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Withdrawal receiver logic
+                |--------------------------------------------------------------------------
+                | Agent withdrawal:
+                | - agent_id = null
+                | - admin handles it
+                |
+                | Player under agent:
+                | - agent_id = player's agent_id
+                | - agent handles it
+                |
+                | Player without agent:
+                | - agent_id = null
+                | - admin handles it
+                */
+
+                $assignedAgentId = null;
+
+                if ($user->role === 'player') {
+                    $assignedAgentId = $user->agent_id;
                 }
 
                 $previousBalance = (float) $user->credit_balance;
@@ -64,6 +91,7 @@ class WithdrawRequestController extends Controller
 
                 $withdrawRequest = WithdrawRequest::create([
                     'user_id' => $user->id,
+                    'agent_id' => $assignedAgentId,
                     'amount' => $amount,
                     'status' => 'pending',
                     'payment_method' => $request->payment_method,
@@ -72,20 +100,16 @@ class WithdrawRequestController extends Controller
                     'note' => $request->note,
                 ]);
 
-                /*
-                 * Save transaction history.
-                 * This is what the agent will see when clicking the player username.
-                 */
                 CreditTransaction::create([
                     'user_id' => $user->id,
-                    'agent_id' => $user->role === 'player' ? $user->agent_id : null,
+                    'agent_id' => $assignedAgentId,
                     'type' => 'withdraw',
                     'amount' => $amount,
                     'previous_balance' => $previousBalance,
                     'current_balance' => $currentBalance,
                     'reference_type' => WithdrawRequest::class,
                     'reference_id' => $withdrawRequest->id,
-                    'description' => 'User requested withdrawal.',
+                    'description' => $this->withdrawDescription($user),
                     'meta' => [
                         'withdraw_id' => $withdrawRequest->id,
                         'withdraw_amount' => $amount,
@@ -93,6 +117,8 @@ class WithdrawRequestController extends Controller
                         'account_name' => $request->account_name,
                         'account_number' => $request->account_number,
                         'role' => $user->role,
+                        'agent_id' => $assignedAgentId,
+                        'handled_by' => $assignedAgentId ? 'agent' : 'admin',
                     ],
                 ]);
 
@@ -124,5 +150,18 @@ class WithdrawRequestController extends Controller
 
             return back()->with('error', 'Something went wrong. Please try again.');
         }
+    }
+
+    private function withdrawDescription(User $user): string
+    {
+        if ($user->role === 'agent') {
+            return 'Agent requested withdrawal from admin.';
+        }
+
+        if ($user->role === 'player' && is_null($user->agent_id)) {
+            return 'Player requested withdrawal from admin.';
+        }
+
+        return 'Player requested withdrawal from agent.';
     }
 }

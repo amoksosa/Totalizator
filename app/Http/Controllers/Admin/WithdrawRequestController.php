@@ -20,8 +20,14 @@ class WithdrawRequestController extends Controller
 
         $withdrawRequests = WithdrawRequest::query()
             ->with('user')
-            ->whereHas('user', function ($query) {
-                $query->where('role', 'agent');
+            ->where(function ($query) {
+                $query->whereHas('user', function ($userQuery) {
+                    $userQuery->where('role', 'agent');
+                })
+                ->orWhereHas('user', function ($userQuery) {
+                    $userQuery->where('role', 'player')
+                        ->whereNull('agent_id');
+                });
             })
             ->when($request->status, function ($query, $status) {
                 $query->where('status', $status);
@@ -45,8 +51,8 @@ class WithdrawRequestController extends Controller
             abort(403);
         }
 
-        if ($withdrawRequest->user?->role !== 'agent') {
-            abort(403, 'Admin can only approve agent withdrawal requests.');
+        if (! $this->adminCanProcess($withdrawRequest)) {
+            abort(403, 'Admin can only approve agent withdrawals or players without an agent.');
         }
 
         if ($withdrawRequest->status !== 'pending') {
@@ -57,13 +63,38 @@ class WithdrawRequestController extends Controller
             'admin_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $withdrawRequest->update([
-            'status' => 'approved',
-            'admin_note' => $request->admin_note,
-            'approved_at' => now(),
-        ]);
+        try {
+            DB::transaction(function () use ($request, $withdrawRequest) {
+                $withdrawRequest = WithdrawRequest::where('id', $withdrawRequest->id)
+                    ->lockForUpdate()
+                    ->first();
 
-        return back()->with('success', 'Agent withdraw request approved successfully.');
+                if (! $withdrawRequest || $withdrawRequest->status !== 'pending') {
+                    throw new \RuntimeException('This withdraw request is already processed.');
+                }
+
+                if (! $this->adminCanProcess($withdrawRequest)) {
+                    throw new \RuntimeException('Invalid admin withdrawal request.');
+                }
+
+                $withdrawRequest->update([
+                    'status' => 'approved',
+                    'admin_note' => $request->admin_note,
+                    'approved_at' => now(),
+                ]);
+            });
+
+            return back()->with('success', 'Withdraw request approved successfully.');
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Admin withdraw approve failed', [
+                'message' => $e->getMessage(),
+                'withdraw_request_id' => $withdrawRequest->id,
+            ]);
+
+            return back()->with('error', 'Something went wrong. Please try again.');
+        }
     }
 
     public function reject(Request $request, WithdrawRequest $withdrawRequest)
@@ -72,8 +103,8 @@ class WithdrawRequestController extends Controller
             abort(403);
         }
 
-        if ($withdrawRequest->user?->role !== 'agent') {
-            abort(403, 'Admin can only reject agent withdrawal requests.');
+        if (! $this->adminCanProcess($withdrawRequest)) {
+            abort(403, 'Admin can only reject agent withdrawals or players without an agent.');
         }
 
         if ($withdrawRequest->status !== 'pending') {
@@ -94,12 +125,16 @@ class WithdrawRequestController extends Controller
                     throw new \RuntimeException('This withdraw request is already processed.');
                 }
 
+                if (! $this->adminCanProcess($withdrawRequest)) {
+                    throw new \RuntimeException('Invalid admin withdrawal request.');
+                }
+
                 $user = User::where('id', $withdrawRequest->user_id)
                     ->lockForUpdate()
                     ->first();
 
-                if (! $user || $user->role !== 'agent') {
-                    throw new \RuntimeException('Invalid agent withdrawal request.');
+                if (! $user) {
+                    throw new \RuntimeException('User not found.');
                 }
 
                 $user->increment('credit_balance', $withdrawRequest->amount);
@@ -123,7 +158,7 @@ class WithdrawRequestController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Agent withdraw request rejected and credit returned.');
+            return back()->with('success', 'Withdraw request rejected and credit returned.');
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -134,5 +169,26 @@ class WithdrawRequestController extends Controller
 
             return back()->with('error', 'Something went wrong. Please try again.');
         }
+    }
+
+    private function adminCanProcess(WithdrawRequest $withdrawRequest): bool
+    {
+        $withdrawRequest->loadMissing('user');
+
+        $user = $withdrawRequest->user;
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->role === 'agent') {
+            return true;
+        }
+
+        if ($user->role === 'player' && is_null($user->agent_id)) {
+            return true;
+        }
+
+        return false;
     }
 }

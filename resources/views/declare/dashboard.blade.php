@@ -9,6 +9,17 @@
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900">
 
+    @php
+        $currentRound = null;
+
+        if ($openEvent) {
+            $currentRound = \App\Models\GameRound::where('game_event_id', $openEvent->id)
+                ->whereIn('status', ['open', 'closed'])
+                ->latest()
+                ->first();
+        }
+    @endphp
+
     <nav class="bg-white border-b border-slate-200">
         <div class="max-w-7xl mx-auto px-4 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -17,7 +28,7 @@
                 </h1>
 
                 <p class="text-sm text-slate-500 mt-1">
-                    Create an event for the day, watch the match, declare winners, then close the event after it ends.
+                    Create an event, start a round, close betting, then declare the winner.
                 </p>
             </div>
 
@@ -52,6 +63,7 @@
             </div>
         @endif
 
+        {{-- Event Control --}}
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -60,7 +72,7 @@
                     </h2>
 
                     <p class="text-slate-500 mt-1">
-                        Create one open event before declaring matches. All match results will be saved inside the open event.
+                        Create one open event for the day. Rounds will be created inside this event.
                     </p>
                 </div>
 
@@ -158,7 +170,7 @@
                     </h2>
 
                     <p class="text-sm text-slate-500 mt-1">
-                        Watch the current match before declaring the winner.
+                        Watch the current match before closing betting and declaring the winner.
                     </p>
                 </div>
 
@@ -175,8 +187,6 @@
 
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow">
                 <div class="relative w-full aspect-video">
-
-                    {{-- IFRAME / LIVESTREAM --}}
                     <iframe
                         class="absolute inset-0 w-full h-full"
                         src="https://www.youtube.com/embed/US1it7zjmvs"
@@ -186,39 +196,152 @@
                         allowfullscreen>
                     </iframe>
 
-                        <video
-                            class="absolute inset-0 w-full h-full"
-                            src="{{ asset('videos/sample-video.mp4') }}"
-                            controls
-                            autoplay
-                            muted
-                            playsinline>
-                        </video>
+                    {{--
+                    If you want to use local video instead of iframe, remove the iframe above
+                    and use this:
+
+                    <video
+                        class="absolute inset-0 w-full h-full"
+                        src="{{ asset('videos/sample-video.mp4') }}"
+                        controls
+                        autoplay
+                        muted
+                        playsinline>
+                    </video>
                     --}}
                 </div>
             </div>
         </section>
 
+        {{-- Round Control --}}
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">
+                        Round Control
+                    </h2>
+
+                    <p class="text-sm text-slate-500 mt-1">
+                        Start a new round, close betting for that round, then declare the winner.
+                    </p>
+                </div>
+
+                @if ($currentRound)
+                    @if ($currentRound->status === 'open')
+                        <span class="rounded-full bg-green-100 text-green-700 px-4 py-2 text-sm font-bold">
+                            Betting Open
+                        </span>
+                    @elseif ($currentRound->status === 'closed')
+                        <span class="rounded-full bg-yellow-100 text-yellow-700 px-4 py-2 text-sm font-bold">
+                            Betting Closed
+                        </span>
+                    @endif
+                @else
+                    <span class="rounded-full bg-slate-100 text-slate-700 px-4 py-2 text-sm font-bold">
+                        No Active Round
+                    </span>
+                @endif
+            </div>
+
+            <div class="mt-6">
+                @if (! $openEvent)
+                    <div class="rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3">
+                        Create an event first before starting a round.
+                    </div>
+                @elseif (! $currentRound)
+                    <form method="POST" action="{{ route('declare.rounds.start') }}" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        @csrf
+
+                        <input
+                            type="text"
+                            name="round_code"
+                            placeholder="Example: Round 1 / Fight #1"
+                            class="rounded-lg border border-slate-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+
+                        <button class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 text-sm font-bold">
+                            Start New Round
+                        </button>
+                    </form>
+                @else
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-sm text-slate-500">
+                            Current Round
+                        </p>
+
+                        <h3 class="text-xl font-bold text-slate-900 mt-1">
+                            {{ $currentRound->round_code ?? 'Round #' . $currentRound->id }}
+                        </h3>
+
+                        <p class="text-sm text-slate-500 mt-1">
+                            Status:
+                            <span class="font-bold uppercase">
+                                {{ $currentRound->status }}
+                            </span>
+                        </p>
+
+                        @if ($currentRound->status === 'open')
+                            <form
+                                method="POST"
+                                action="{{ route('declare.rounds.close', $currentRound) }}"
+                                class="mt-4"
+                                onsubmit="return confirm('Close betting for this round? Players will not be able to bet until the next round.')"
+                            >
+                                @csrf
+                                @method('PATCH')
+
+                                <button class="rounded-lg bg-red-600 hover:bg-red-700 text-white px-5 py-3 text-sm font-bold">
+                                    Close Betting
+                                </button>
+                            </form>
+                        @elseif ($currentRound->status === 'closed')
+                            <div class="mt-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 text-sm">
+                                Betting is closed. You can now declare the winner below.
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
+        </section>
+
+        {{-- Declare Winner --}}
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-2xl font-bold text-slate-900">
                 Declare Winner
             </h2>
 
-            @if ($openEvent)
+            @if (! $openEvent)
+                <div class="mt-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3">
+                    Create an event first before declaring a winner.
+                </div>
+            @elseif (! $currentRound)
+                <div class="mt-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3">
+                    Start a new round first.
+                </div>
+            @elseif ($currentRound->status === 'open')
+                <div class="mt-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3">
+                    Betting is still open. Close betting before declaring the winner.
+                </div>
+            @elseif ($currentRound->status === 'closed')
                 <p class="text-slate-500 mt-1">
                     Current event:
                     <span class="font-bold text-slate-900">
                         {{ $openEvent->event_name }}
                     </span>
                 </p>
-            @else
-                <div class="mt-3 rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3">
-                    Create an event first before declaring a winner.
-                </div>
+
+                <p class="text-slate-500 mt-1">
+                    Current round:
+                    <span class="font-bold text-slate-900">
+                        {{ $currentRound->round_code ?? 'Round #' . $currentRound->id }}
+                    </span>
+                </p>
             @endif
 
             <form method="POST" action="{{ route('declare.winner.store') }}" class="mt-6 space-y-5">
                 @csrf
+
+                <input type="hidden" name="game_round_id" value="{{ $currentRound?->id }}">
 
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">
@@ -228,10 +351,10 @@
                     <input
                         type="text"
                         name="round_code"
-                        value="{{ old('round_code') }}"
+                        value="{{ old('round_code', $currentRound?->round_code) }}"
                         placeholder="Example: Fight #1"
                         class="w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        @disabled(! $openEvent)
+                        @disabled(! $currentRound || $currentRound->status !== 'closed')
                     >
                 </div>
 
@@ -240,7 +363,7 @@
                         name="winner"
                         value="MERON"
                         class="rounded-2xl bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-8 text-3xl font-extrabold transition"
-                        @disabled(! $openEvent)
+                        @disabled(! $currentRound || $currentRound->status !== 'closed')
                     >
                         MERON
                     </button>
@@ -249,7 +372,7 @@
                         name="winner"
                         value="WALA"
                         class="rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-8 text-3xl font-extrabold transition"
-                        @disabled(! $openEvent)
+                        @disabled(! $currentRound || $currentRound->status !== 'closed')
                     >
                         WALA
                     </button>
@@ -258,7 +381,7 @@
                         name="winner"
                         value="DRAW"
                         class="rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-6 py-8 text-3xl font-extrabold transition"
-                        @disabled(! $openEvent)
+                        @disabled(! $currentRound || $currentRound->status !== 'closed')
                     >
                         DRAW
                     </button>
@@ -266,6 +389,7 @@
             </form>
         </section>
 
+        {{-- Declaration History --}}
         <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-6 py-5 border-b border-slate-200 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>

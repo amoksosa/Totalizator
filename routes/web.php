@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Controllers\Declare\RoundController as DeclareRoundController;
 use App\Http\Controllers\Admin\SalesReportController;
 use App\Http\Controllers\Declare\EventController as DeclareEventController;
 use App\Http\Controllers\Admin\CommissionController as AdminCommissionController;
-use App\Http\Controllers\Admin\AgentCodeController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Admin\WithdrawRequestController as AdminWithdrawRequestController;
 use App\Http\Controllers\Agent\CommissionController;
@@ -36,8 +36,11 @@ Route::middleware('auth')->group(function () {
     
     */
 
-    Route::get('/admin/dashboard', [AuthController::class, 'adminDashboard'])->name('admin.dashboard');
-    Route::get('/agent/dashboard', [AuthController::class, 'agentDashboard'])->name('agent.dashboard');
+    Route::get('/admin/dashboard', [AuthController::class, 'adminDashboard'])
+        ->name('admin.dashboard');
+
+    Route::get('/agent/dashboard', [AuthController::class, 'agentDashboard'])
+        ->name('agent.dashboard');
 
     /*
     
@@ -45,9 +48,14 @@ Route::middleware('auth')->group(function () {
     
     */
 
-    Route::get('/player/dashboard', [PlayerGameController::class, 'dashboard'])->name('player.dashboard');
-    Route::post('/player/bet', [PlayerGameController::class, 'placeBet'])->name('player.bet');
-    Route::get('/player/bet-history', [PlayerGameController::class, 'history'])->name('player.bet-history');
+    Route::get('/player/dashboard', [PlayerGameController::class, 'dashboard'])
+        ->name('player.dashboard');
+
+    Route::post('/player/bet', [PlayerGameController::class, 'placeBet'])
+        ->name('player.bet');
+
+    Route::get('/player/bet-history', [PlayerGameController::class, 'history'])
+        ->name('player.bet-history');
 
     Route::get('/player/latest-declaration', [PlayerGameController::class, 'latestDeclaration'])
         ->name('player.latest-declaration');
@@ -61,24 +69,46 @@ Route::middleware('auth')->group(function () {
     
     */
 
-    Route::get('/admin/users', [UserManagementController::class, 'index'])->name('admin.users.index');
-    Route::patch('/admin/users/{user}/approve', [UserManagementController::class, 'approve'])->name('admin.users.approve');
-    Route::patch('/admin/users/{user}/disapprove', [UserManagementController::class, 'disapprove'])->name('admin.users.disapprove');
-    Route::patch('/admin/users/{user}/role', [UserManagementController::class, 'updateRole'])->name('admin.users.role');
-    Route::patch('/admin/users/{user}/info', [UserManagementController::class, 'updateInfo'])->name('admin.users.info');
-    Route::patch('/admin/users/{user}/password', [UserManagementController::class, 'changePassword'])->name('admin.users.password');
-    Route::patch('/admin/users/{user}/give-credit', [UserManagementController::class, 'giveCredit'])->name('admin.users.giveCredit');
-    Route::patch('/admin/users/{user}/get-credit', [UserManagementController::class, 'getCredit'])->name('admin.users.getCredit');
-    Route::delete('/admin/users/{user}/force-logout', [UserManagementController::class, 'forceLogout'])->name('admin.users.forceLogout');
+    Route::get('/admin/users', [UserManagementController::class, 'index'])
+        ->name('admin.users.index');
+
+    Route::patch('/admin/users/{user}/approve', [UserManagementController::class, 'approve'])
+        ->name('admin.users.approve');
+
+    Route::patch('/admin/users/{user}/disapprove', [UserManagementController::class, 'disapprove'])
+        ->name('admin.users.disapprove');
+
+    Route::patch('/admin/users/{user}/role', [UserManagementController::class, 'updateRole'])
+        ->name('admin.users.role');
+
+    Route::patch('/admin/users/{user}/info', [UserManagementController::class, 'updateInfo'])
+        ->name('admin.users.info');
+
+    Route::patch('/admin/users/{user}/password', [UserManagementController::class, 'changePassword'])
+        ->name('admin.users.password');
+
+    Route::patch('/admin/users/{user}/give-credit', [UserManagementController::class, 'giveCredit'])
+        ->name('admin.users.giveCredit');
+
+    Route::patch('/admin/users/{user}/get-credit', [UserManagementController::class, 'getCredit'])
+        ->name('admin.users.getCredit');
+
+    Route::delete('/admin/users/{user}/force-logout', [UserManagementController::class, 'forceLogout'])
+        ->name('admin.users.forceLogout');
 
     /*
     
-     Admin - Agent Codes
+     Admin - Player Registration Link
     
     */
 
-    Route::get('/admin/agent-codes', [AgentCodeController::class, 'index'])->name('admin.agent-codes.index');
-    Route::post('/admin/agent-codes', [AgentCodeController::class, 'store'])->name('admin.agent-codes.store');
+    Route::get('/admin/player-registration-link', function () {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        return view('admin.player-registration-link');
+    })->name('admin.player-registration-link');
 
     /*
     
@@ -91,25 +121,39 @@ Route::middleware('auth')->group(function () {
 
     /*
     
+     Admin - Sales Report
+    
+    */
+
+    Route::get('/admin/sales', [SalesReportController::class, 'index'])
+        ->name('admin.sales.index');
+
+    Route::get('/admin/sales/{event}', [SalesReportController::class, 'show'])
+        ->name('admin.sales.show');
+
+    /*
+    
      Agent
     
     */
 
-    Route::get('/agent/player-codes', [PlayerCodeController::class, 'index'])->name('agent.player-codes.index');
-    Route::post('/agent/player-codes', [PlayerCodeController::class, 'store'])->name('agent.player-codes.store');
+    Route::get('/agent/player-codes', [PlayerCodeController::class, 'index'])
+        ->name('agent.player-codes.index');
 
-    Route::get('/agent/users', [AgentUserManagementController::class, 'index'])->name('agent.users.index');
-    Route::patch('/agent/users/{user}/give-credit', [AgentUserManagementController::class, 'giveCredit'])->name('agent.users.giveCredit');
-    Route::patch('/agent/users/{user}/get-credit', [AgentUserManagementController::class, 'getCredit'])->name('agent.users.getCredit');
+    Route::get('/agent/users', [AgentUserManagementController::class, 'index'])
+        ->name('agent.users.index');
 
-    Route::get('/agent/commissions', [CommissionController::class, 'index'])->name('agent.commissions.index');
-    Route::post('/agent/commissions/convert-to-wallet', [CommissionController::class, 'convertToWallet'])->name('agent.commissions.convertToWallet');
+    Route::patch('/agent/users/{user}/give-credit', [AgentUserManagementController::class, 'giveCredit'])
+        ->name('agent.users.giveCredit');
 
-    Route::get('/admin/sales', [SalesReportController::class, 'index'])
-    ->name('admin.sales.index');
+    Route::patch('/agent/users/{user}/get-credit', [AgentUserManagementController::class, 'getCredit'])
+        ->name('agent.users.getCredit');
 
-    Route::get('/admin/sales/{event}', [SalesReportController::class, 'show'])
-    ->name('admin.sales.show');
+    Route::get('/agent/commissions', [CommissionController::class, 'index'])
+        ->name('agent.commissions.index');
+
+    Route::post('/agent/commissions/convert-to-wallet', [CommissionController::class, 'convertToWallet'])
+        ->name('agent.commissions.convertToWallet');
 
     /*
     
@@ -117,16 +161,29 @@ Route::middleware('auth')->group(function () {
     
     */
 
-    Route::get('/withdrawals', [WithdrawRequestController::class, 'index'])->name('withdrawals.index');
-    Route::post('/withdrawals', [WithdrawRequestController::class, 'store'])->name('withdrawals.store');
+    Route::get('/withdrawals', [WithdrawRequestController::class, 'index'])
+        ->name('withdrawals.index');
 
-    Route::get('/agent/withdrawals', [AgentWithdrawRequestController::class, 'index'])->name('agent.withdrawals.index');
-    Route::patch('/agent/withdrawals/{withdrawRequest}/approve', [AgentWithdrawRequestController::class, 'approve'])->name('agent.withdrawals.approve');
-    Route::patch('/agent/withdrawals/{withdrawRequest}/reject', [AgentWithdrawRequestController::class, 'reject'])->name('agent.withdrawals.reject');
+    Route::post('/withdrawals', [WithdrawRequestController::class, 'store'])
+        ->name('withdrawals.store');
 
-    Route::get('/admin/withdrawals', [AdminWithdrawRequestController::class, 'index'])->name('admin.withdrawals.index');
-    Route::patch('/admin/withdrawals/{withdrawRequest}/approve', [AdminWithdrawRequestController::class, 'approve'])->name('admin.withdrawals.approve');
-    Route::patch('/admin/withdrawals/{withdrawRequest}/reject', [AdminWithdrawRequestController::class, 'reject'])->name('admin.withdrawals.reject');
+    Route::get('/agent/withdrawals', [AgentWithdrawRequestController::class, 'index'])
+        ->name('agent.withdrawals.index');
+
+    Route::patch('/agent/withdrawals/{withdrawRequest}/approve', [AgentWithdrawRequestController::class, 'approve'])
+        ->name('agent.withdrawals.approve');
+
+    Route::patch('/agent/withdrawals/{withdrawRequest}/reject', [AgentWithdrawRequestController::class, 'reject'])
+        ->name('agent.withdrawals.reject');
+
+    Route::get('/admin/withdrawals', [AdminWithdrawRequestController::class, 'index'])
+        ->name('admin.withdrawals.index');
+
+    Route::patch('/admin/withdrawals/{withdrawRequest}/approve', [AdminWithdrawRequestController::class, 'approve'])
+        ->name('admin.withdrawals.approve');
+
+    Route::patch('/admin/withdrawals/{withdrawRequest}/reject', [AdminWithdrawRequestController::class, 'reject'])
+        ->name('admin.withdrawals.reject');
 
     /*
     
@@ -134,8 +191,11 @@ Route::middleware('auth')->group(function () {
     
     */
 
-    Route::get('/declare/dashboard', [DeclareController::class, 'index'])->name('declare.dashboard');
-    Route::post('/declare/winner', [DeclareController::class, 'store'])->name('declare.winner.store');
+    Route::get('/declare/dashboard', [DeclareController::class, 'index'])
+        ->name('declare.dashboard');
+
+    Route::post('/declare/winner', [DeclareController::class, 'store'])
+        ->name('declare.winner.store');
 
     /*
     
@@ -157,9 +217,22 @@ Route::middleware('auth')->group(function () {
 
     /*
     
+     Declare - Rounds
+    
+    */
+
+    Route::post('/declare/rounds/start', [DeclareRoundController::class, 'start'])
+        ->name('declare.rounds.start');
+
+    Route::patch('/declare/rounds/{round}/close', [DeclareRoundController::class, 'close'])
+        ->name('declare.rounds.close');
+
+    /*
+    
      Logout
     
     */
 
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/logout', [AuthController::class, 'logout'])
+        ->name('logout');
 });

@@ -2,40 +2,24 @@
 
 namespace App\Http\Controllers\Agent;
 
-use App\Events\CreditBalanceUpdated;
 use App\Http\Controllers\Controller;
-use App\Models\CreditTransaction;
 use App\Models\User;
+use App\Models\CreditTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class UserManagementController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
         if (auth()->user()->role !== 'agent') {
             abort(403);
         }
 
-        $players = User::query()
-            ->with([
-                'creditTransactions' => function ($query) {
-                    $query->latest()->limit(50);
-                }
-            ])
+        $players = User::where('role', 'player')
             ->where('agent_id', auth()->id())
-            ->where('role', 'player')
-            ->when($request->search, function ($query, $search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('username', 'like', "%{$search}%")
-                        ->orWhere('mobile_number', 'like', "%{$search}%")
-                        ->orWhere('status', 'like', "%{$search}%");
-                });
-            })
             ->latest()
-            ->paginate(10)
-            ->withQueryString();
+            ->paginate(20);
 
         return view('agent.users.index', compact('players'));
     }
@@ -46,96 +30,58 @@ class UserManagementController extends Controller
             abort(403);
         }
 
-        if ($user->agent_id !== auth()->id() || $user->role !== 'player') {
+        if ($user->role !== 'player' || (int) $user->agent_id !== (int) auth()->id()) {
             abort(403);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'credit_amount' => ['required', 'numeric', 'min:1'],
         ]);
 
-        $amount = (float) $request->credit_amount;
+        $amount = round((float) $validated['credit_amount'], 2);
+        $agent = auth()->user();
 
-        try {
-            $updatedUsers = DB::transaction(function () use ($user, $amount) {
-                $agent = User::where('id', auth()->id())
-                    ->lockForUpdate()
-                    ->first();
+        if ((float) $agent->credit_balance < $amount) {
+            return back()->withErrors([
+                'credit_amount' => 'Insufficient agent credit balance.',
+            ]);
+        }
 
-                $player = User::where('id', $user->id)
-                    ->lockForUpdate()
-                    ->first();
+        DB::transaction(function () use ($agent, $user, $amount) {
+            $agent = User::where('id', $agent->id)->lockForUpdate()->first();
+            $player = User::where('id', $user->id)->lockForUpdate()->first();
 
-                if (! $agent || ! $player) {
-                    throw new \RuntimeException('User not found.');
-                }
+            $agentPreviousBalance = (float) $agent->credit_balance;
+            $playerPreviousBalance = (float) $player->credit_balance;
 
-                if ((float) $agent->credit_balance < $amount) {
-                    throw new \RuntimeException('Insufficient agent credit balance.');
-                }
+            $agent->decrement('credit_balance', $amount);
+            $player->increment('credit_balance', $amount);
 
-                $agentPreviousBalance = (float) $agent->credit_balance;
-                $playerPreviousBalance = (float) $player->credit_balance;
+            $agent->refresh();
+            $player->refresh();
 
-                $agent->decrement('credit_balance', $amount);
-                $player->increment('credit_balance', $amount);
-
-                $agent->refresh();
-                $player->refresh();
-
-                CreditTransaction::create([
-                    'user_id' => $player->id,
-                    'agent_id' => $agent->id,
-                    'type' => 'agent_give_credit',
-                    'amount' => $amount,
-                    'previous_balance' => $playerPreviousBalance,
-                    'current_balance' => $player->credit_balance,
-                    'description' => 'Agent gave credit to player.',
-                    'meta' => [
-                        'agent_username' => $agent->username,
-                        'player_username' => $player->username,
-                    ],
-                ]);
-
-                CreditTransaction::create([
-                    'user_id' => $agent->id,
-                    'agent_id' => $agent->id,
-                    'type' => 'agent_transfer_out',
-                    'amount' => $amount,
-                    'previous_balance' => $agentPreviousBalance,
-                    'current_balance' => $agent->credit_balance,
-                    'description' => 'Agent transferred credit to player: ' . $player->username,
-                    'meta' => [
-                        'player_id' => $player->id,
-                        'player_username' => $player->username,
-                    ],
-                ]);
-
-                return [
-                    'agent' => $agent,
-                    'player' => $player,
-                ];
-            });
-
-            try {
-                broadcast(new CreditBalanceUpdated($updatedUsers['agent']));
-                broadcast(new CreditBalanceUpdated($updatedUsers['player']));
-            } catch (\Throwable $broadcastError) {
-                Log::error('Broadcast failed after credit transfer', [
-                    'message' => $broadcastError->getMessage(),
-                ]);
-            }
-
-            return back()->with('success', 'Credit transferred to player successfully.');
-        } catch (\RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (\Throwable $e) {
-            Log::error('Agent credit transfer failed', [
-                'message' => $e->getMessage(),
+            CreditTransaction::create([
+                'user_id' => $player->id,
+                'agent_id' => $agent->id,
+                'type' => 'agent_give_credit',
+                'amount' => $amount,
+                'previous_balance' => $playerPreviousBalance,
+                'current_balance' => $player->credit_balance,
+                'description' => 'Agent gave credit to player.',
             ]);
 
-            return back()->with('error', 'Something went wrong. Please try again.');
-        }
+            CreditTransaction::create([
+                'user_id' => $agent->id,
+                'agent_id' => $agent->id,
+                'type' => 'agent_credit_deduct',
+                'amount' => $amount,
+                'previous_balance' => $agentPreviousBalance,
+                'current_balance' => $agent->credit_balance,
+                'description' => 'Credit deducted after giving credit to player.',
+            ]);
+        });
+
+        return back()->with('success', 'Credit given successfully.');
     }
 
     public function getCredit(Request $request, User $user)
@@ -144,95 +90,56 @@ class UserManagementController extends Controller
             abort(403);
         }
 
-        if ($user->agent_id !== auth()->id() || $user->role !== 'player') {
+        if ($user->role !== 'player' || (int) $user->agent_id !== (int) auth()->id()) {
             abort(403);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'credit_amount' => ['required', 'numeric', 'min:1'],
         ]);
 
-        $amount = (float) $request->credit_amount;
+        $amount = round((float) $validated['credit_amount'], 2);
 
-        try {
-            $updatedUsers = DB::transaction(function () use ($user, $amount) {
-                $agent = User::where('id', auth()->id())
-                    ->lockForUpdate()
-                    ->first();
+        if ((float) $user->credit_balance < $amount) {
+            return back()->withErrors([
+                'credit_amount' => 'Player has insufficient credit balance.',
+            ]);
+        }
 
-                $player = User::where('id', $user->id)
-                    ->lockForUpdate()
-                    ->first();
+        DB::transaction(function () use ($user, $amount) {
+            $agent = User::where('id', auth()->id())->lockForUpdate()->first();
+            $player = User::where('id', $user->id)->lockForUpdate()->first();
 
-                if (! $agent || ! $player) {
-                    throw new \RuntimeException('User not found.');
-                }
+            $agentPreviousBalance = (float) $agent->credit_balance;
+            $playerPreviousBalance = (float) $player->credit_balance;
 
-                if ((float) $player->credit_balance < $amount) {
-                    throw new \RuntimeException('Insufficient player credit balance.');
-                }
+            $player->decrement('credit_balance', $amount);
+            $agent->increment('credit_balance', $amount);
 
-                $agentPreviousBalance = (float) $agent->credit_balance;
-                $playerPreviousBalance = (float) $player->credit_balance;
+            $agent->refresh();
+            $player->refresh();
 
-                $player->decrement('credit_balance', $amount);
-                $agent->increment('credit_balance', $amount);
-
-                $agent->refresh();
-                $player->refresh();
-
-                CreditTransaction::create([
-                    'user_id' => $player->id,
-                    'agent_id' => $agent->id,
-                    'type' => 'agent_get_credit',
-                    'amount' => $amount,
-                    'previous_balance' => $playerPreviousBalance,
-                    'current_balance' => $player->credit_balance,
-                    'description' => 'Agent got credit from player.',
-                    'meta' => [
-                        'agent_username' => $agent->username,
-                        'player_username' => $player->username,
-                    ],
-                ]);
-
-                CreditTransaction::create([
-                    'user_id' => $agent->id,
-                    'agent_id' => $agent->id,
-                    'type' => 'agent_transfer_in',
-                    'amount' => $amount,
-                    'previous_balance' => $agentPreviousBalance,
-                    'current_balance' => $agent->credit_balance,
-                    'description' => 'Agent got credit from player: ' . $player->username,
-                    'meta' => [
-                        'player_id' => $player->id,
-                        'player_username' => $player->username,
-                    ],
-                ]);
-
-                return [
-                    'agent' => $agent,
-                    'player' => $player,
-                ];
-            });
-
-            try {
-                broadcast(new CreditBalanceUpdated($updatedUsers['agent']));
-                broadcast(new CreditBalanceUpdated($updatedUsers['player']));
-            } catch (\Throwable $broadcastError) {
-                Log::error('Broadcast failed after agent get credit', [
-                    'message' => $broadcastError->getMessage(),
-                ]);
-            }
-
-            return back()->with('success', 'Credit taken from player successfully.');
-        } catch (\RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (\Throwable $e) {
-            Log::error('Agent get credit failed', [
-                'message' => $e->getMessage(),
+            CreditTransaction::create([
+                'user_id' => $player->id,
+                'agent_id' => $agent->id,
+                'type' => 'agent_get_credit',
+                'amount' => $amount,
+                'previous_balance' => $playerPreviousBalance,
+                'current_balance' => $player->credit_balance,
+                'description' => 'Agent retrieved credit from player.',
             ]);
 
-            return back()->with('error', 'Something went wrong. Please try again.');
-        }
+            CreditTransaction::create([
+                'user_id' => $agent->id,
+                'agent_id' => $agent->id,
+                'type' => 'agent_credit_received',
+                'amount' => $amount,
+                'previous_balance' => $agentPreviousBalance,
+                'current_balance' => $agent->credit_balance,
+                'description' => 'Agent received credit from player.',
+            ]);
+        });
+
+        return back()->with('success', 'Credit retrieved successfully.');
     }
 }

@@ -53,6 +53,10 @@ class UserManagementController extends Controller
 
     public function approve(User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $user->update([
             'status' => 'approved',
         ]);
@@ -62,6 +66,10 @@ class UserManagementController extends Controller
 
     public function disapprove(User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $user->update([
             'status' => 'disapproved',
         ]);
@@ -74,6 +82,10 @@ class UserManagementController extends Controller
 
     public function updateRole(Request $request, User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $request->validate([
             'role' => ['required', Rule::in(['admin', 'agent', 'player', 'declare'])],
         ]);
@@ -87,6 +99,10 @@ class UserManagementController extends Controller
 
     public function updateInfo(Request $request, User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $request->validate([
             'mobile_number' => [
                 'required',
@@ -112,6 +128,10 @@ class UserManagementController extends Controller
 
     public function changePassword(Request $request, User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $request->validate([
             'password' => ['required', 'string', 'min:6'],
         ]);
@@ -136,9 +156,9 @@ class UserManagementController extends Controller
             'credit_amount' => ['required', 'numeric', 'min:1'],
         ]);
 
-        if ($user->role !== 'agent') {
+        if (! in_array($user->role, ['agent', 'player'])) {
             return back()->withErrors([
-                'credit_amount' => 'Admin can only give credits to agents.',
+                'credit_amount' => 'Admin can only give credits to agents or players.',
             ]);
         }
 
@@ -146,36 +166,52 @@ class UserManagementController extends Controller
 
         try {
             $updatedUser = DB::transaction(function () use ($user, $amount) {
-                $agent = User::where('id', $user->id)
+                $targetUser = User::where('id', $user->id)
                     ->lockForUpdate()
                     ->first();
 
-                if (! $agent) {
-                    throw new \RuntimeException('Agent not found.');
+                if (! $targetUser) {
+                    throw new \RuntimeException('User not found.');
                 }
 
-                $previousBalance = (float) $agent->credit_balance;
+                if (! in_array($targetUser->role, ['agent', 'player'])) {
+                    throw new \RuntimeException('Admin can only give credits to agents or players.');
+                }
 
-                $agent->increment('credit_balance', $amount);
-                $agent->refresh();
+                $previousBalance = (float) $targetUser->credit_balance;
+
+                $targetUser->increment('credit_balance', $amount);
+                $targetUser->refresh();
 
                 CreditTransaction::create([
-                    'user_id' => $agent->id,
-                    'agent_id' => $agent->id,
-                    'type' => 'admin_give_credit',
+                    'user_id' => $targetUser->id,
+                    'agent_id' => $targetUser->role === 'agent'
+                        ? $targetUser->id
+                        : $targetUser->agent_id,
+
+                    'type' => $targetUser->role === 'agent'
+                        ? 'admin_give_credit'
+                        : 'admin_give_player_credit',
+
                     'amount' => $amount,
                     'previous_balance' => $previousBalance,
-                    'current_balance' => $agent->credit_balance,
-                    'description' => 'Admin gave credit to agent.',
+                    'current_balance' => $targetUser->credit_balance,
+
+                    'description' => $targetUser->role === 'agent'
+                        ? 'Admin gave credit to agent.'
+                        : 'Admin gave credit to player.',
+
                     'meta' => [
                         'admin_id' => auth()->id(),
                         'admin_username' => auth()->user()->username,
-                        'agent_id' => $agent->id,
-                        'agent_username' => $agent->username,
+                        'target_user_id' => $targetUser->id,
+                        'target_username' => $targetUser->username,
+                        'target_role' => $targetUser->role,
+                        'agent_id' => $targetUser->agent_id,
                     ],
                 ]);
 
-                return $agent;
+                return $targetUser;
             });
 
             try {
@@ -187,7 +223,7 @@ class UserManagementController extends Controller
                 ]);
             }
 
-            return back()->with('success', 'Credit added to agent successfully.');
+            return back()->with('success', 'Credit added successfully.');
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -280,6 +316,10 @@ class UserManagementController extends Controller
 
     public function forceLogout(User $user)
     {
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
         $this->forceLogoutUser($user);
         $this->broadcastForceLogout($user);
 

@@ -21,7 +21,7 @@ const chipButtons = document.querySelectorAll(".odds-chip");
 const balanceDisplay = document.getElementById("player-balance");
 
 function safeOddsId(label) {
-    return label.replace(/[^0-9a-zA-Z]+/g, "_");
+    return String(label).replace(/[^0-9a-zA-Z]+/g, "_");
 }
 
 function formatMoney(value) {
@@ -32,7 +32,10 @@ function formatMoney(value) {
 }
 
 function formatNumber(value) {
-    return Number(value || 0).toLocaleString("en-PH");
+    return Number(value || 0).toLocaleString("en-PH", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    });
 }
 
 function getStep() {
@@ -192,12 +195,14 @@ async function updateOdds(side, label, dir) {
 
     try {
         const data = await placeBet(side, label, step);
-        const nextValue = currentValue + step;
 
-        oddsState[key] = nextValue;
-
-        renderSingleCell(side, label, nextValue);
         updateBalance(data.new_balance);
+
+        /*
+         * Do not manually add the amount here.
+         * Instead, reload totals from backend so the board is always accurate.
+         */
+        await loadCurrentBetTotals();
 
         Swal.fire({
             icon: "success",
@@ -409,43 +414,6 @@ function initDeclarationPolling() {
     }, 2000);
 }
 
-function applyExternalBetToBoard(event) {
-    const side = event.side;
-    const label = event.odds;
-    const amount = Number(event.amount || 0);
-    const key = `${side}|${label}`;
-
-    if (amount <= 0) {
-        return;
-    }
-
-    const currentValue = oddsState[key] || 0;
-    const nextValue = currentValue + amount;
-
-    oddsState[key] = nextValue;
-    renderSingleCell(side, label, nextValue);
-}
-
-function initLiveBetListener() {
-    if (!window.Echo) {
-        console.error("Laravel Echo is not loaded.");
-        return;
-    }
-
-    window.Echo.channel("game.bets")
-        .listen(".player.bet.placed", (event) => {
-            /**
-             * The player who placed the bet already updates their own board
-             * after the request succeeds, so skip their own broadcast to avoid double count.
-             */
-            if (Number(event.player_id) === Number(userId)) {
-                return;
-            }
-
-            applyExternalBetToBoard(event);
-        });
-}
-
 function applyBetTotalToBoard(total) {
     const side = total.side;
     const label = total.odds;
@@ -454,6 +422,27 @@ function applyBetTotalToBoard(total) {
 
     oddsState[key] = amount;
     renderSingleCell(side, label, amount);
+}
+
+function applyBetTotalsToBoard(totals) {
+    resetOnlyTotals();
+
+    totals.forEach((total) => {
+        applyBetTotalToBoard(total);
+    });
+}
+
+function resetOnlyTotals() {
+    ODDS_ROWS.forEach((label) => {
+        oddsState[`MERON|${label}`] = 0;
+        oddsState[`WALA|${label}`] = 0;
+
+        renderSingleCell("MERON", label, 0);
+        renderSingleCell("WALA", label, 0);
+    });
+
+    oddsState["DRAW|1-8"] = 0;
+    renderSingleCell("DRAW", "1-8", 0);
 }
 
 async function loadCurrentBetTotals() {
@@ -475,12 +464,41 @@ async function loadCurrentBetTotals() {
             return;
         }
 
-        data.totals.forEach((total) => {
-            applyBetTotalToBoard(total);
-        });
+        applyBetTotalsToBoard(data.totals);
     } catch (error) {
         console.error("Loading current bet totals failed:", error);
     }
+}
+
+function initLiveBetListener() {
+    if (!window.Echo) {
+        console.error("Laravel Echo is not loaded.");
+        return;
+    }
+
+    window.Echo.channel("game.bets")
+        .listen(".player.bet.placed", async () => {
+            /*
+             * Reload totals for everyone including the player who placed the bet.
+             * This prevents double counting and keeps totals accurate.
+             */
+            await loadCurrentBetTotals();
+        })
+        .listen(".round.bet-totals.updated", (event) => {
+            console.log("ROUND TOTALS UPDATED:", event);
+
+            applyBetTotalsToBoard(event.totals || []);
+
+            if (typeof Swal !== "undefined") {
+                Swal.fire({
+                    icon: "info",
+                    title: "Betting Closed",
+                    text: "Totals were adjusted. Excess bets were returned if needed.",
+                    timer: 1800,
+                    showConfirmButton: false,
+                });
+            }
+        });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

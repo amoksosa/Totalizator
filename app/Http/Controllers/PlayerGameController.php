@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\GameEvent;
-use App\Models\CreditTransaction;
 use App\Events\CreditBalanceUpdated;
 use App\Events\PlayerBetPlaced;
 use App\Models\AgentCommission;
 use App\Models\Bet;
+use App\Models\CreditTransaction;
 use App\Models\GameDeclaration;
+use App\Models\GameEvent;
+use App\Models\GameRound;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ class PlayerGameController extends Controller
         }
 
         $bets = Bet::where('user_id', auth()->id())
+            ->with(['event', 'round'])
             ->latest()
             ->paginate(20);
 
@@ -71,8 +73,32 @@ class PlayerGameController extends Controller
             abort(403);
         }
 
+        $openEvent = GameEvent::where('status', 'open')
+            ->latest()
+            ->first();
+
+        if (! $openEvent) {
+            return response()->json([
+                'success' => true,
+                'totals' => [],
+            ]);
+        }
+
+        $currentRound = GameRound::where('game_event_id', $openEvent->id)
+            ->whereIn('status', ['open', 'closed'])
+            ->latest()
+            ->first();
+
+        if (! $currentRound) {
+            return response()->json([
+                'success' => true,
+                'totals' => [],
+            ]);
+        }
+
         $totals = Bet::query()
             ->select('side', 'odds', DB::raw('SUM(amount) as total_amount'))
+            ->where('game_round_id', $currentRound->id)
             ->where('status', 'pending')
             ->groupBy('side', 'odds')
             ->get()
@@ -87,6 +113,11 @@ class PlayerGameController extends Controller
         return response()->json([
             'success' => true,
             'totals' => $totals,
+            'round' => [
+                'id' => $currentRound->id,
+                'round_code' => $currentRound->round_code,
+                'status' => $currentRound->status,
+            ],
         ]);
     }
 
@@ -102,21 +133,10 @@ class PlayerGameController extends Controller
             'amount' => ['required', 'numeric', 'min:1'],
         ]);
 
-        $openEvent = GameEvent::where('status', 'open')
-            ->latest()
-            ->first();
-
-        if (! $openEvent) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Betting is closed. No active event right now.',
-            ], 422);
-        }
-
-        $amount = (float) $request->amount;
+        $requestedAmount = round((float) $request->amount, 2);
 
         try {
-            $result = DB::transaction(function () use ($request, $amount) {
+            $result = DB::transaction(function () use ($request, $requestedAmount) {
                 $openEvent = GameEvent::where('status', 'open')
                     ->latest()
                     ->lockForUpdate()
@@ -124,6 +144,16 @@ class PlayerGameController extends Controller
 
                 if (! $openEvent) {
                     throw new \RuntimeException('Betting is closed. No active event right now.');
+                }
+
+                $openRound = GameRound::where('game_event_id', $openEvent->id)
+                    ->where('status', 'open')
+                    ->latest()
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $openRound) {
+                    throw new \RuntimeException('Betting is closed. Please wait for the next round.');
                 }
 
                 $player = User::where('id', auth()->id())
@@ -134,35 +164,53 @@ class PlayerGameController extends Controller
                     throw new \RuntimeException('Player not found.');
                 }
 
-                if ((float) $player->credit_balance < $amount) {
+                if ((float) $player->credit_balance < $requestedAmount) {
                     throw new \RuntimeException('Insufficient credit balance.');
                 }
 
+                /*
+                |--------------------------------------------------------------------------
+                | Bet logic
+                |--------------------------------------------------------------------------
+                | Accept the full requested amount first.
+                | Excess will be refunded later when declare closes betting.
+                */
+
+                $acceptedAmount = $requestedAmount;
+                $refundAmount = 0;
+
                 $balanceBefore = (float) $player->credit_balance;
-                $balanceAfter = $balanceBefore - $amount;
+                $balanceAfter = round($balanceBefore - $acceptedAmount, 2);
 
                 $player->update([
                     'credit_balance' => $balanceAfter,
                 ]);
 
                 $bet = Bet::create([
-                'user_id' => $player->id,
-                'game_event_id' => $openEvent->id,
-                'side' => $request->side,
-                'odds' => $request->odds,
-                'amount' => $amount,
-                'status' => 'pending',
-                'win_amount' => 0,
-                'payout_amount' => 0,
-                'balance_before' => $balanceBefore,
-                'balance_after' => $balanceAfter,
-            ]);
+                    'user_id' => $player->id,
+                    'game_event_id' => $openEvent->id,
+                    'game_round_id' => $openRound->id,
+
+                    'side' => $request->side,
+                    'odds' => $request->odds,
+
+                    'requested_amount' => $requestedAmount,
+                    'amount' => $acceptedAmount,
+                    'refunded_amount' => $refundAmount,
+
+                    'status' => 'pending',
+                    'win_amount' => 0,
+                    'payout_amount' => 0,
+
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                ]);
 
                 CreditTransaction::create([
                     'user_id' => $player->id,
                     'agent_id' => $player->agent_id,
                     'type' => 'bet',
-                    'amount' => $amount,
+                    'amount' => $acceptedAmount,
                     'previous_balance' => $balanceBefore,
                     'current_balance' => $balanceAfter,
                     'reference_type' => Bet::class,
@@ -171,48 +219,70 @@ class PlayerGameController extends Controller
                     'meta' => [
                         'event_id' => $openEvent->id,
                         'event_name' => $openEvent->event_name,
+                        'round_id' => $openRound->id,
+                        'round_code' => $openRound->round_code,
                         'bet_id' => $bet->id,
                         'side' => $bet->side,
                         'odds' => $bet->odds,
-                        'amount' => $amount,
+                        'requested_amount' => $requestedAmount,
+                        'accepted_amount' => $acceptedAmount,
+                        'refunded_amount' => $refundAmount,
                     ],
                 ]);
 
-                if ($player->agent_id) {
-                    $agentCommissionRate = 3.00;
-                    $agentCommissionAmount = $amount * ($agentCommissionRate / 100);
+                /*
+                |--------------------------------------------------------------------------
+                | Commission logic
+                |--------------------------------------------------------------------------
+                | Player with agent:
+                | - Agent commission = 3%
+                | - Company commission = 2%
+                | - Total commission = 5%
+                |
+                | Direct admin player with no agent:
+                | - Agent commission = 0%
+                | - Company commission = 2%
+                | - Total commission = 2%
+                */
 
-                    $companyCommissionRate = 2.00;
-                    $companyCommissionAmount = $amount * ($companyCommissionRate / 100);
+                $agentCommissionRate = $player->agent_id ? 3.00 : 0.00;
+                $companyCommissionRate = 2.00;
 
-                    $totalCommissionRate = $agentCommissionRate + $companyCommissionRate;
-                    $totalCommissionAmount = $agentCommissionAmount + $companyCommissionAmount;
+                $agentCommissionAmount = round($acceptedAmount * ($agentCommissionRate / 100), 2);
+                $companyCommissionAmount = round($acceptedAmount * ($companyCommissionRate / 100), 2);
 
-                    AgentCommission::create([
-                        'agent_id' => $player->agent_id,
-                        'player_id' => $player->id,
-                        'bet_id' => $bet->id,
-                        'bet_amount' => $amount,
+                $totalCommissionRate = $agentCommissionRate + $companyCommissionRate;
+                $totalCommissionAmount = round($agentCommissionAmount + $companyCommissionAmount, 2);
 
-                        'commission_rate' => $agentCommissionRate,
-                        'commission_amount' => $agentCommissionAmount,
+                AgentCommission::create([
+                    'agent_id' => $player->agent_id,
+                    'player_id' => $player->id,
+                    'bet_id' => $bet->id,
+                    'bet_amount' => $acceptedAmount,
 
-                        'company_commission_rate' => $companyCommissionRate,
-                        'company_commission_amount' => $companyCommissionAmount,
+                    'commission_rate' => $agentCommissionRate,
+                    'commission_amount' => $agentCommissionAmount,
 
-                        'total_commission_rate' => $totalCommissionRate,
-                        'total_commission_amount' => $totalCommissionAmount,
+                    'company_commission_rate' => $companyCommissionRate,
+                    'company_commission_amount' => $companyCommissionAmount,
 
-                        'side' => $request->side,
-                        'odds' => $request->odds,
-                    ]);
-                }
+                    'total_commission_rate' => $totalCommissionRate,
+                    'total_commission_amount' => $totalCommissionAmount,
+
+                    'conversion_status' => 'pending',
+                    'converted_amount' => 0,
+
+                    'side' => $request->side,
+                    'odds' => $request->odds,
+                ]);
 
                 $player->refresh();
 
                 return [
                     'bet' => $bet,
                     'player' => $player,
+                    'accepted_amount' => $acceptedAmount,
+                    'refunded_amount' => $refundAmount,
                 ];
             });
 
@@ -235,8 +305,11 @@ class PlayerGameController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Bet placed successfully.',
+                'message' => 'Bet placed successfully. Excess, if any, will be returned when betting is closed.',
                 'bet' => $bet,
+                'requested_amount' => number_format($requestedAmount, 2, '.', ''),
+                'accepted_amount' => number_format($result['accepted_amount'], 2, '.', ''),
+                'refunded_amount' => number_format($result['refunded_amount'], 2, '.', ''),
                 'new_balance' => number_format($bet->balance_after, 2, '.', ''),
             ]);
         } catch (\RuntimeException $e) {

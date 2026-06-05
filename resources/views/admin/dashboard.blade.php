@@ -85,20 +85,20 @@
                 </div>
             </a>
 
-            <a href="{{ route('admin.agent-codes.index') }}"
+            <a href="{{ route('admin.player-registration-link') }}"
                class="group block bg-white border border-slate-200 hover:border-purple-400 rounded-2xl shadow-sm hover:shadow-md p-6 transition">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <div class="h-12 w-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-2xl mb-4">
-                            🎟️
+                            🔗
                         </div>
 
                         <h3 class="text-lg font-bold text-slate-900">
-                            Agent Registration Codes
+                            Player Registration Link
                         </h3>
 
                         <p class="text-sm text-slate-500 mt-2 leading-relaxed">
-                            Generate direct registration codes for agents.
+                            Copy the public player registration link. Players registered here will not be under any agent.
                         </p>
                     </div>
 
