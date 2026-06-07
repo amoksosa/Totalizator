@@ -37,7 +37,12 @@ class Bet extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function player()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function event()

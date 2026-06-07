@@ -14,6 +14,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class PlayerGameController extends Controller
@@ -24,7 +25,7 @@ class PlayerGameController extends Controller
             abort(403);
         }
 
-        return view('player.dashboard');
+        return view('player.totalizator');
     }
 
     public function history()
@@ -168,18 +169,10 @@ class PlayerGameController extends Controller
                     throw new \RuntimeException('Insufficient credit balance.');
                 }
 
-                /*
-                |--------------------------------------------------------------------------
-                | Bet logic
-                |--------------------------------------------------------------------------
-                | Accept the full requested amount first.
-                | Excess will be refunded later when declare closes betting.
-                */
-
                 $acceptedAmount = $requestedAmount;
                 $refundAmount = 0;
 
-                $balanceBefore = (float) $player->credit_balance;
+                $balanceBefore = round((float) $player->credit_balance, 2);
                 $balanceAfter = round($balanceBefore - $acceptedAmount, 2);
 
                 $player->update([
@@ -227,54 +220,61 @@ class PlayerGameController extends Controller
                         'requested_amount' => $requestedAmount,
                         'accepted_amount' => $acceptedAmount,
                         'refunded_amount' => $refundAmount,
+                        'player_agent_id' => $player->agent_id,
                     ],
                 ]);
 
                 /*
                 |--------------------------------------------------------------------------
-                | Commission logic
+                | Agent Downline Commission
                 |--------------------------------------------------------------------------
-                | Player with agent:
-                | - Agent commission = 3%
-                | - Company commission = 2%
-                | - Total commission = 5%
-                |
-                | Direct admin player with no agent:
-                | - Agent commission = 0%
-                | - Company commission = 2%
-                | - Total commission = 2%
+                | Only create commission record if the player belongs to an agent.
+                | Agent gets 3%, company gets 2%, total commission is 5%.
                 */
+                if (! empty($player->agent_id)) {
+                    $agentCommissionRate = 3.00;
+                    $companyCommissionRate = 2.00;
+                    $totalCommissionRate = 5.00;
 
-                $agentCommissionRate = $player->agent_id ? 3.00 : 0.00;
-                $companyCommissionRate = 2.00;
+                    $agentCommissionAmount = round($acceptedAmount * 0.03, 2);
+                    $companyCommissionAmount = round($acceptedAmount * 0.02, 2);
+                    $totalCommissionAmount = round($acceptedAmount * 0.05, 2);
 
-                $agentCommissionAmount = round($acceptedAmount * ($agentCommissionRate / 100), 2);
-                $companyCommissionAmount = round($acceptedAmount * ($companyCommissionRate / 100), 2);
+                    AgentCommission::create([
+                        'agent_id' => $player->agent_id,
+                        'player_id' => $player->id,
+                        'bet_id' => $bet->id,
 
-                $totalCommissionRate = $agentCommissionRate + $companyCommissionRate;
-                $totalCommissionAmount = round($agentCommissionAmount + $companyCommissionAmount, 2);
+                        'bet_amount' => $acceptedAmount,
 
-                AgentCommission::create([
-                    'agent_id' => $player->agent_id,
-                    'player_id' => $player->id,
-                    'bet_id' => $bet->id,
-                    'bet_amount' => $acceptedAmount,
+                        'commission_rate' => $agentCommissionRate,
+                        'commission_amount' => $agentCommissionAmount,
 
-                    'commission_rate' => $agentCommissionRate,
-                    'commission_amount' => $agentCommissionAmount,
+                        'company_commission_rate' => $companyCommissionRate,
+                        'company_commission_amount' => $companyCommissionAmount,
 
-                    'company_commission_rate' => $companyCommissionRate,
-                    'company_commission_amount' => $companyCommissionAmount,
+                        'total_commission_rate' => $totalCommissionRate,
+                        'total_commission_amount' => $totalCommissionAmount,
 
-                    'total_commission_rate' => $totalCommissionRate,
-                    'total_commission_amount' => $totalCommissionAmount,
+                        'conversion_status' => 'pending',
+                        'converted_amount' => 0,
 
-                    'conversion_status' => 'pending',
-                    'converted_amount' => 0,
+                        'side' => $bet->side,
+                        'odds' => $bet->odds,
+                    ]);
 
-                    'side' => $request->side,
-                    'odds' => $request->odds,
-                ]);
+                    $agent = User::where('id', $player->agent_id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($agent) {
+                        if (Schema::hasColumn('users', 'commission_balance')) {
+                            $agent->increment('commission_balance', $agentCommissionAmount);
+                        } else {
+                            $agent->increment('credit_balance', $agentCommissionAmount);
+                        }
+                    }
+                }
 
                 $player->refresh();
 
@@ -305,7 +305,7 @@ class PlayerGameController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Bet placed successfully. Excess, if any, will be returned when betting is closed.',
+                'message' => 'Bet placed successfully.',
                 'bet' => $bet,
                 'requested_amount' => number_format($requestedAmount, 2, '.', ''),
                 'accepted_amount' => number_format($result['accepted_amount'], 2, '.', ''),

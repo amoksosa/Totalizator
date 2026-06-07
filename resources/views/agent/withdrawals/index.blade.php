@@ -7,13 +7,14 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
+
 <body class="min-h-screen bg-slate-100 text-slate-900">
 
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div class="max-w-[1500px] mx-auto px-6 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <nav class="bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-slate-900">
-                    Withdraw Requests
+                <h1 class="text-2xl font-bold text-slate-900">
+                    Player Withdraw Requests
                 </h1>
 
                 <p class="text-sm text-slate-500 mt-1">
@@ -21,21 +22,21 @@
                 </p>
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('agent.dashboard') }}"
-                   class="rounded-xl bg-slate-800 hover:bg-slate-900 text-white px-5 py-3 text-sm font-bold transition">
+                   class="rounded-lg bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 text-sm font-semibold transition">
                     Dashboard
                 </a>
 
-                <a href="{{ route('admin.users.index') }}"
-                   class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 text-sm font-bold transition">
+                <a href="{{ route('agent.users.index') }}"
+                   class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-semibold transition">
                     Users
                 </a>
 
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
 
-                    <button class="rounded-xl bg-red-600 hover:bg-red-700 text-white px-5 py-3 text-sm font-bold transition">
+                    <button class="rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm font-semibold transition">
                         Logout
                     </button>
                 </form>
@@ -43,24 +44,24 @@
         </div>
     </nav>
 
-    <main class="max-w-[1500px] mx-auto px-6 py-8">
+    <main class="max-w-7xl mx-auto px-4 py-6">
 
-        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-5">
             <form method="GET"
                   action="{{ route('agent.withdrawals.index') }}"
-                  class="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-4">
+                  class="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-3">
 
                 <input
                     type="text"
                     name="search"
                     value="{{ request('search') }}"
                     placeholder="Search username or mobile number..."
-                    class="rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
 
                 <select
                     name="status"
-                    class="rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="">All Status</option>
                     <option value="pending" @selected(request('status') === 'pending')>Pending</option>
@@ -68,160 +69,187 @@
                     <option value="rejected" @selected(request('status') === 'rejected')>Rejected</option>
                 </select>
 
-                <button class="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 transition">
+                <button class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-2 transition">
                     Filter
                 </button>
             </form>
         </section>
 
-        <section class="space-y-5">
-            @forelse ($withdrawRequests as $withdrawRequest)
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <div class="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr_1.2fr] gap-6">
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-900">
+                    Withdraw Requests
+                </h2>
 
-                        <div>
-                            <div class="flex flex-wrap items-center gap-3">
-                                <h2 class="text-2xl font-extrabold text-slate-900">
-                                    ₱{{ number_format($withdrawRequest->amount, 2) }}
-                                </h2>
+                <p class="text-sm text-slate-500 mt-1">
+                    Review player withdrawal details and process pending requests.
+                </p>
+            </div>
 
-                                @if ($withdrawRequest->status === 'approved')
-                                    <span class="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-bold">
-                                        Approved
-                                    </span>
-                                @elseif ($withdrawRequest->status === 'rejected')
-                                    <span class="rounded-full bg-red-100 text-red-700 px-3 py-1 text-xs font-bold">
-                                        Rejected
-                                    </span>
-                                @else
-                                    <span class="rounded-full bg-yellow-100 text-yellow-700 px-3 py-1 text-xs font-bold">
-                                        Pending
-                                    </span>
-                                @endif
-                            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[1200px]">
+                    <thead class="bg-slate-100 text-slate-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Request</th>
+                            <th class="px-4 py-3 text-left">Player</th>
+                            <th class="px-4 py-3 text-left">Payment Method</th>
+                            <th class="px-4 py-3 text-left">Account Details</th>
+                            <th class="px-4 py-3 text-left">Notes</th>
+                            <th class="px-4 py-3 text-left">Status</th>
+                            <th class="px-4 py-3 text-left">Action</th>
+                        </tr>
+                    </thead>
 
-                            <div class="mt-4 space-y-2 text-sm text-slate-600">
-                                <p>
-                                    <span class="font-bold text-slate-900">Requested By:</span>
-                                    {{ $withdrawRequest->user?->username ?? 'Unknown' }}
-                                </p>
+                    <tbody class="divide-y divide-slate-200">
+                        @forelse ($withdrawRequests as $withdrawRequest)
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-4">
+                                    <p class="text-lg font-bold text-slate-900">
+                                        ₱{{ number_format($withdrawRequest->amount, 2) }}
+                                    </p>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">Role:</span>
-                                    {{ ucfirst($withdrawRequest->user?->role ?? 'N/A') }}
-                                </p>
+                                    <p class="text-xs text-slate-500 mt-1">
+                                        {{ $withdrawRequest->created_at->format('M d, Y h:i A') }}
+                                    </p>
+                                </td>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">Mobile:</span>
-                                    {{ $withdrawRequest->user?->mobile_number ?? 'N/A' }}
-                                </p>
+                                <td class="px-4 py-4">
+                                    <p class="font-bold text-slate-900">
+                                        {{ $withdrawRequest->user?->username ?? 'Unknown' }}
+                                    </p>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">Date:</span>
-                                    {{ $withdrawRequest->created_at->format('M d, Y h:i A') }}
-                                </p>
-                            </div>
-                        </div>
+                                    <p class="text-xs text-slate-500 mt-1">
+                                        {{ ucfirst($withdrawRequest->user?->role ?? 'N/A') }}
+                                    </p>
 
-                        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-5">
-                            <h3 class="font-bold text-slate-900">
-                                Payment Details
-                            </h3>
+                                    <p class="text-xs text-slate-500">
+                                        {{ $withdrawRequest->user?->mobile_number ?? 'N/A' }}
+                                    </p>
+                                </td>
 
-                            <div class="mt-4 space-y-2 text-sm text-slate-600">
-                                <p>
-                                    <span class="font-bold text-slate-900">Method:</span>
+                                <td class="px-4 py-4">
                                     {{ $withdrawRequest->payment_method ?? 'N/A' }}
-                                </p>
+                                </td>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">Account Name:</span>
-                                    {{ $withdrawRequest->account_name ?? 'N/A' }}
-                                </p>
+                                <td class="px-4 py-4">
+                                    <p class="font-semibold text-slate-900">
+                                        {{ $withdrawRequest->account_name ?? 'N/A' }}
+                                    </p>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">Account Number:</span>
-                                    {{ $withdrawRequest->account_number ?? 'N/A' }}
-                                </p>
+                                    <p class="text-slate-600 mt-1">
+                                        {{ $withdrawRequest->account_number ?? 'N/A' }}
+                                    </p>
+                                </td>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">User Note:</span>
-                                    {{ $withdrawRequest->note ?? 'N/A' }}
-                                </p>
+                                <td class="px-4 py-4">
+                                    <div class="space-y-2">
+                                        <div>
+                                            <p class="text-xs font-bold uppercase text-slate-400">
+                                                User Note
+                                            </p>
 
-                                <p>
-                                    <span class="font-bold text-slate-900">Admin Note:</span>
-                                    {{ $withdrawRequest->admin_note ?? 'N/A' }}
-                                </p>
-                            </div>
-                        </div>
+                                            <p class="text-slate-700">
+                                                {{ $withdrawRequest->note ?? 'N/A' }}
+                                            </p>
+                                        </div>
 
-                        <div class="rounded-2xl border border-slate-200 p-5">
-                            @if ($withdrawRequest->status === 'pending')
-                                <h3 class="font-bold text-slate-900">
-                                    Admin Action
-                                </h3>
+                                        <div>
+                                            <p class="text-xs font-bold uppercase text-slate-400">
+                                                Admin Note
+                                            </p>
 
-                                <form method="POST"
-                                      action="{{ route('agent.withdrawals.approve', $withdrawRequest) }}"
-                                      class="mt-4 space-y-3">
-                                    @csrf
-                                    @method('PATCH')
+                                            <p class="text-slate-700">
+                                                {{ $withdrawRequest->admin_note ?? 'N/A' }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </td>
 
-                                    <textarea
-                                        name="admin_note"
-                                        rows="2"
-                                        placeholder="Optional admin note"
-                                        class="w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    ></textarea>
+                                <td class="px-4 py-4">
+                                    @if ($withdrawRequest->status === 'approved')
+                                        <span class="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-bold">
+                                            Approved
+                                        </span>
+                                    @elseif ($withdrawRequest->status === 'rejected')
+                                        <span class="rounded-full bg-red-100 text-red-700 px-3 py-1 text-xs font-bold">
+                                            Rejected
+                                        </span>
+                                    @else
+                                        <span class="rounded-full bg-yellow-100 text-yellow-700 px-3 py-1 text-xs font-bold">
+                                            Pending
+                                        </span>
+                                    @endif
+                                </td>
 
-                                    <button class="w-full rounded-xl bg-green-600 hover:bg-green-700 text-white px-5 py-3 font-bold transition">
-                                        Approve Withdrawal
-                                    </button>
-                                </form>
+                                <td class="px-4 py-4">
+                                    @if ($withdrawRequest->status === 'pending')
+                                        <div class="grid grid-cols-1 gap-3 min-w-[260px]">
+                                            <form method="POST"
+                                                  action="{{ route('agent.withdrawals.approve', $withdrawRequest) }}"
+                                                  class="space-y-2">
+                                                @csrf
+                                                @method('PATCH')
 
-                                <form method="POST"
-                                      action="{{ route('agent.withdrawals.reject', $withdrawRequest) }}"
-                                      class="mt-3 space-y-3">
-                                    @csrf
-                                    @method('PATCH')
+                                                <textarea
+                                                    name="admin_note"
+                                                    rows="2"
+                                                    placeholder="Optional admin note"
+                                                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                ></textarea>
 
-                                    <textarea
-                                        name="admin_note"
-                                        rows="2"
-                                        placeholder="Reason for rejection"
-                                        class="w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
-                                    ></textarea>
+                                                <button class="w-full rounded-lg bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-xs font-bold transition">
+                                                    Approve Withdrawal
+                                                </button>
+                                            </form>
 
-                                    <button class="w-full rounded-xl bg-red-600 hover:bg-red-700 text-white px-5 py-3 font-bold transition">
-                                        Reject & Return Credit
-                                    </button>
-                                </form>
-                            @else
-                                <div class="h-full flex items-center justify-center text-center text-slate-500">
-                                    This request has already been processed.
-                                </div>
-                            @endif
-                        </div>
+                                            <form method="POST"
+                                                  action="{{ route('agent.withdrawals.reject', $withdrawRequest) }}"
+                                                  class="space-y-2"
+                                                  onsubmit="return confirm('Reject this withdrawal and return credit?')">
+                                                @csrf
+                                                @method('PATCH')
 
-                    </div>
-                </div>
-            @empty
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 px-6 py-12 text-center">
-                    <h2 class="text-2xl font-bold text-slate-900">
-                        No withdraw requests found
-                    </h2>
+                                                <textarea
+                                                    name="admin_note"
+                                                    rows="2"
+                                                    placeholder="Reason for rejection"
+                                                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                                ></textarea>
 
-                    <p class="text-slate-500 mt-2">
-                        Agent and player withdraw requests will appear here.
-                    </p>
-                </div>
-            @endforelse
+                                                <button class="w-full rounded-lg bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-xs font-bold transition">
+                                                    Reject & Return Credit
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-slate-500">
+                                            Already processed
+                                        </span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center">
+                                    <h2 class="text-xl font-bold text-slate-900">
+                                        No withdraw requests found
+                                    </h2>
+
+                                    <p class="text-slate-500 mt-2">
+                                        Player withdraw requests will appear here.
+                                    </p>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <div class="mt-6">
             {{ $withdrawRequests->links() }}
         </div>
+
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
