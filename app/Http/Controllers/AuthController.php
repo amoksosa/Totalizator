@@ -68,10 +68,10 @@ class AuthController extends Controller
         $agentFromLink = null;
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Admin Agent Registration Code
-        |--------------------------------------------------------------------------
-        | This creates an AGENT account from an admin-generated code.
+        
+
         */
 
         if ($request->filled('admin_agent_code')) {
@@ -94,10 +94,10 @@ class AuthController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Agent Player Registration Link
-        |--------------------------------------------------------------------------
-        | This makes the player part of the agent downline.
+        
+        
         */
 
         if ($type === 'player' && $agentCodeFromLink) {
@@ -120,9 +120,9 @@ class AuthController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Old Player Code System Fallback
-        |--------------------------------------------------------------------------
+        
         */
 
         if ($request->filled('player_code')) {

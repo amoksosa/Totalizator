@@ -27,9 +27,9 @@ class SalesReportController extends Controller
         $includeTotalizator = $game === 'overall' || $game === 'totalizator';
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Pokémon Query
-        |--------------------------------------------------------------------------
+        
         */
         $pokemonQuery = GameSalesReport::query()
             ->where('source_game', 'pokemon')
@@ -37,9 +37,9 @@ class SalesReportController extends Controller
             ->whereDate('settled_at', '<=', $to);
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Totalizator Query
-        |--------------------------------------------------------------------------
+        
         | IMPORTANT:
         | Use Bet records, not AgentCommission records.
         |
@@ -54,9 +54,9 @@ class SalesReportController extends Controller
             ->whereDate('created_at', '<=', $to);
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Event Filter
-        |--------------------------------------------------------------------------
+        
         | Format:
         | pokemon|12
         | totalizator|5
@@ -78,9 +78,9 @@ class SalesReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Search
-        |--------------------------------------------------------------------------
+        
         */
         if ($search) {
             $pokemonQuery->where(function ($query) use ($search) {
@@ -104,9 +104,9 @@ class SalesReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | All Events for Filter Dropdown
-        |--------------------------------------------------------------------------
+        
         */
         $allEvents = collect();
 
@@ -138,15 +138,15 @@ class SalesReportController extends Controller
                 ];
             });
 
-        $allEvents = $pokemonEvents
-            ->merge($totalizatorEvents)
+        $allEvents = collect($pokemonEvents)
+            ->concat(collect($totalizatorEvents))
             ->sortBy('event_name')
             ->values();
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Pokémon Summary
-        |--------------------------------------------------------------------------
+        
         */
         $pokemonSummary = (object) [
             'total_records' => 0,
@@ -173,9 +173,9 @@ class SalesReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Totalizator Summary
-        |--------------------------------------------------------------------------
+        
         */
         $totalizatorRows = collect();
 
@@ -199,9 +199,9 @@ class SalesReportController extends Controller
         ];
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Overall Summary
-        |--------------------------------------------------------------------------
+        
         */
         $summary = (object) [
             'total_records' => (int) ($pokemonSummary->total_records ?? 0) + (int) ($totalizatorSummary->total_records ?? 0),
@@ -214,17 +214,17 @@ class SalesReportController extends Controller
         ];
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Reports
-        |--------------------------------------------------------------------------
+        
         */
         $reports = collect();
 
         if ($reportType === 'event') {
             /*
-            |--------------------------------------------------------------------------
+            
             | Event-Based Pokémon Report
-            |--------------------------------------------------------------------------
+            
             */
             if ($includePokemon) {
                 $pokemonReports = (clone $pokemonQuery)
@@ -247,9 +247,9 @@ class SalesReportController extends Controller
             }
 
             /*
-            |--------------------------------------------------------------------------
+            
             | Event-Based Totalizator Report
-            |--------------------------------------------------------------------------
+            
             */
             if ($includeTotalizator) {
                 $totalizatorReports = $totalizatorRows
@@ -280,9 +280,9 @@ class SalesReportController extends Controller
                 ->values();
         } else {
             /*
-            |--------------------------------------------------------------------------
+            
             | Daily Pokémon Report
-            |--------------------------------------------------------------------------
+            
             */
             if ($includePokemon) {
                 $pokemonDailyReports = (clone $pokemonQuery)
@@ -304,9 +304,9 @@ class SalesReportController extends Controller
             }
 
             /*
-            |--------------------------------------------------------------------------
+            
             | Daily Totalizator Report
-            |--------------------------------------------------------------------------
+            
             */
             if ($includeTotalizator) {
                 $totalizatorDailyReports = $totalizatorRows
@@ -367,18 +367,10 @@ class SalesReportController extends Controller
         $acceptedAmount = $this->acceptedBetAmount($bet);
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Admin Sales Report Commission Rule
-        |--------------------------------------------------------------------------
-        | For every accepted Totalizator bet:
-        |
-        | Agent/Admin Commission = 3%
-        | Company Commission = 2%
-        | Total Commission = 5%
-        |
-        | This applies to:
-        | - admin direct players
-        | - agent downline players
+        
+
         */
         $agentCommission = round($acceptedAmount * 0.03, 2);
         $companyCommission = round($acceptedAmount * 0.02, 2);

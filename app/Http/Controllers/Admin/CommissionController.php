@@ -23,16 +23,10 @@ class CommissionController extends Controller
         $search = $request->query('search');
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Totalizator Bets Query
-        |--------------------------------------------------------------------------
-        | IMPORTANT:
-        | Admin report should use GameBet, not AgentCommission only.
-        |
-        | Why:
-        | - AgentCommission only records bets from players under agents.
-        | - Admin direct players usually have agent_id = null.
-        | - So admin direct player bets will be missing if we only use AgentCommission.
+        
+
         */
         $totalizatorBetQuery = Bet::query()
             ->with(['player.agent'])
@@ -52,9 +46,9 @@ class CommissionController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Pokémon Commission Query
-        |--------------------------------------------------------------------------
+        
         | Pokémon reports are stored in game_sales_reports.
         */
         $pokemonQuery = GameSalesReport::query()
@@ -69,9 +63,9 @@ class CommissionController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Totals by Game Filter
-        |--------------------------------------------------------------------------
+        
         */
         $totalizatorBetAmount = 0;
         $totalizatorAgentCommission = 0;
@@ -113,9 +107,9 @@ class CommissionController extends Controller
         $totalCommission = $totalizatorTotalCommission + $pokemonTotalCommission;
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Wallet Totals
-        |--------------------------------------------------------------------------
+        
         */
         $totalPlayerWallet = User::where('role', 'player')
             ->sum('credit_balance');
@@ -126,9 +120,9 @@ class CommissionController extends Controller
         $totalAgentAndPlayerWallet = $totalPlayerWallet + $totalAgentWallet;
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Agent Withdraw Requests
-        |--------------------------------------------------------------------------
+        
         */
         $agentWithdrawQuery = WithdrawRequest::query()
             ->with('user')
@@ -155,9 +149,9 @@ class CommissionController extends Controller
             ->withQueryString();
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Records
-        |--------------------------------------------------------------------------
+        
         */
         $commissions = collect();
         $pokemonCommissions = collect();
@@ -222,18 +216,11 @@ class CommissionController extends Controller
     $betAmount = round(max($rawAmount - $refundedAmount, 0), 2);
 
     /*
-    |--------------------------------------------------------------------------
+    
     | Admin Report Commission Rule
-    |--------------------------------------------------------------------------
+    
     | Every accepted totalizator bet should be split like this:
-    |
-    | - Agent/Admin commission: 3%
-    | - Company commission: 2%
-    | - Total commission: 5%
-    |
-    | This applies to both:
-    | - players under agents
-    | - admin direct players
+
     */
     $agentCommissionRate = 0.03;
     $companyCommissionRate = 0.02;

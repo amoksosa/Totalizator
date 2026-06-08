@@ -20,21 +20,19 @@ class CommissionReportController extends Controller
         $agentId = auth()->id();
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Date Filter
-        |--------------------------------------------------------------------------
-        | Important:
-        | - If date is empty, show OVERALL / ALL-TIME report.
-        | - If date is selected, filter only that date.
+        
+
         */
         $selectedDate = $request->query('date');
         $game = $request->query('game', 'overall');
         $search = $request->query('search');
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Totalizator Commission Query
-        |--------------------------------------------------------------------------
+        
         */
         $totalizatorQuery = AgentCommission::query()
             ->with(['agent', 'player', 'bet'])
@@ -58,9 +56,9 @@ class CommissionReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Pokémon Commission Query
-        |--------------------------------------------------------------------------
+        
         */
         $pokemonQuery = AgentCommission::query()
             ->with(['agent', 'player'])
@@ -82,9 +80,9 @@ class CommissionReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Totalizator Totals
-        |--------------------------------------------------------------------------
+        
         */
         $totalizatorBetAmount = 0;
         $totalizatorAgentCommission = 0;
@@ -95,9 +93,9 @@ class CommissionReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Pokémon Totals
-        |--------------------------------------------------------------------------
+        
         */
         $pokemonBetAmount = 0;
         $pokemonAgentCommission = 0;
@@ -108,18 +106,18 @@ class CommissionReportController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Final Agent Totals
-        |--------------------------------------------------------------------------
+        
         */
         $totalBetAmount = $totalizatorBetAmount + $pokemonBetAmount;
         $totalAgentCommission = $totalizatorAgentCommission + $pokemonAgentCommission;
         $totalCommission = $totalAgentCommission;
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Downline Wallet Summary
-        |--------------------------------------------------------------------------
+        
         */
         $totalDownlinePlayers = User::where('role', 'player')
             ->where('agent_id', $agentId)
@@ -132,18 +130,16 @@ class CommissionReportController extends Controller
         $agentWallet = auth()->user()->credit_balance ?? 0;
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Real Commission Wallet
-        |--------------------------------------------------------------------------
-        | Shows remaining unconverted commission, all-time.
+        
         */
         $agentCommissionWallet = $this->pendingCommissionBalance($agentId);
 
         /*
-        |--------------------------------------------------------------------------
+        
         | Paginated Records
-        |--------------------------------------------------------------------------
-        | Records still show created_at date and time in the Blade.
+        
         */
         $commissions = collect();
 

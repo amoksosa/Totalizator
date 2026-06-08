@@ -60,20 +60,10 @@ class WithdrawRequestController extends Controller
                 }
 
                 /*
-                |--------------------------------------------------------------------------
+                
                 | Withdrawal receiver logic
-                |--------------------------------------------------------------------------
-                | Agent withdrawal:
-                | - agent_id = null
-                | - admin handles it
-                |
-                | Player under agent:
-                | - agent_id = player's agent_id
-                | - agent handles it
-                |
-                | Player without agent:
-                | - agent_id = null
-                | - admin handles it
+                
+
                 */
 
                 $assignedAgentId = null;
