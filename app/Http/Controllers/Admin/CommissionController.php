@@ -219,7 +219,7 @@ class CommissionController extends Controller
     
     | Admin Report Commission Rule
     
-    | Every accepted totalizator bet should be split like this:
+    
 
     */
     $agentCommissionRate = 0.03;

@@ -40,13 +40,7 @@ class SalesReportController extends Controller
         
         | Totalizator Query
         
-        | IMPORTANT:
-        | Use Bet records, not AgentCommission records.
-        |
-        | AgentCommission only records players under agents.
-        | Bet records include both:
-        | - admin direct players
-        | - agent downline players
+      
         */
         $totalizatorQuery = Bet::query()
             ->with(['player.agent', 'event'])
@@ -57,9 +51,7 @@ class SalesReportController extends Controller
         
         | Event Filter
         
-        | Format:
-        | pokemon|12
-        | totalizator|5
+        
         */
         if ($eventKey) {
             [$eventGame, $eventSourceId] = array_pad(explode('|', $eventKey), 2, null);

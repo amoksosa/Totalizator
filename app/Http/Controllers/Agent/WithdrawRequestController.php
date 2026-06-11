@@ -82,7 +82,7 @@ class WithdrawRequestController extends Controller
 
                 /*
                  * Player withdrawal approved.
-                 * The withdrawn amount goes to the agent's credit balance.
+                
                  */
                 $agent->increment('credit_balance', $withdrawRequest->amount);
                 $agent->refresh();
@@ -153,7 +153,7 @@ class WithdrawRequestController extends Controller
 
                 /*
                  * Withdrawal rejected.
-                 * Return the requested amount back to the player's credit balance.
+                
                  */
                 $user->increment('credit_balance', $withdrawRequest->amount);
                 $user->refresh();
